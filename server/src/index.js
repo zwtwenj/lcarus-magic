@@ -12,7 +12,7 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// JWT 校验：除 /api/auth 外均需有效 token
+// JWT 鏍￠獙锛氶櫎 /api/auth 澶栧潎闇€鏈夋晥 token
 app.use(
     '/api',
     expressJwt({
@@ -26,19 +26,19 @@ app.use(
 app.use('/api/auth', authRoutes);
 app.use('/api', hotspotRoutes);
 
-// 错误处理：JWT 未通过时
+// Handle errors for JWT validation
 app.use((err, req, res, next) => {
     if (err.name === 'UnauthorizedError') {
-        return res.status(401).json({ message: '无效或过期的 token' });
+        return res.status(401).json({ message: 'Invalid token' });
     }
     next(err);
 });
 
 app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ message: '服务器内部错误' });
+    res.status(500).json({ message: 'Internal server error' });
 });
 
-app.listen(config.port, () => {
-    console.log(`服务已启动: http://localhost:${config.port}`);
+app.listen(config.port, async () => {
+    console.log(`Server is running on http://localhost:${config.port}`);
 });
