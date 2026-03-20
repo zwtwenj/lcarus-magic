@@ -10,6 +10,8 @@ Node 后端：Express + express-jwt，提供登录与热点数据上报接口。
 - **cors** - 跨域
 - **helmet** - 安全头
 - **dotenv** - 环境变量
+- **bcryptjs** - 登录密码校验
+- **mysql2** - MySQL 连接
 
 ## 快速开始
 
@@ -39,6 +41,22 @@ mysql -h 127.0.0.1 -P 3306 -u root -p lcarus-magic < sql/hot-data.sql
 
 字段：`time`（CHAR8，即用户传入的日期）、`title`、`summary`、`material`（JSON 数组）、`remake`、`source`（JSON 数组）、`created_at`。
 
+### 数据库：用户表 `users`
+
+登录会查询 `users`，请求体里的 `account` 与表字段 **`account` 或 `email`** 匹配，密码与 `password_hash`（bcrypt）比对。
+
+```bash
+mysql -h 127.0.0.1 -P 3306 -u root -p lcarus-magic < sql/users.sql
+```
+
+插入测试用户前需生成 bcrypt 哈希，例如在 `server` 目录：
+
+```bash
+node -e "console.log(require('bcryptjs').hashSync('你的密码', 10))"
+```
+
+将输出写入 `INSERT INTO users (account, password_hash, ...) VALUES ('demo', '<哈希>', ...)`。若旧表为 `username` 列，可执行 `sql/users-rename-username-to-account.sql`。
+
 ## 接口说明
 
 ### 1. 登录（获取 JWT）
@@ -48,8 +66,8 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "username": "任意",
-  "password": "任意"
+  "account": "用户名或邮箱",
+  "password": "密码"
 }
 ```
 
@@ -58,9 +76,13 @@ Content-Type: application/json
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIs...",
-  "username": "任意"
+  "account": "demo",
+  "displayName": null,
+  "role": "user"
 }
 ```
+
+JWT 载荷中 `sub` 为用户数字 id（字符串），`account` 为表字段 `account`。
 
 ### 2. 获取热点数据（无需 JWT）
 
@@ -115,7 +137,7 @@ Authorization: Bearer <你的token>
 const loginRes = await fetch('http://localhost:3000/api/auth/login', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ username: 'user1', password: 'pass1' }),
+  body: JSON.stringify({ account: 'user1', password: 'pass1' }),
 });
 const { token } = await loginRes.json();
 
