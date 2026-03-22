@@ -21,7 +21,19 @@ async function fetchUpstreamAndPersist(date, mode = 'append') {
     }
 
     const text = body.toString('utf8');
-    const parsed = JSON.parse(text);
+    // 尝试直接解析JSON
+    let parsed;
+    try {
+        parsed = JSON.parse(text);
+    } catch (parseError) {
+        // 如果直接解析失败，尝试移除反引号后再解析
+        let sanitizedText = text.replace(/`/g, '');
+        try {
+            parsed = JSON.parse(sanitizedText);
+        } catch (secondError) {
+            throw secondError;
+        }
+    }
     if (!Array.isArray(parsed)) {
         throw new Error('上游返回 JSON 非数组，无法写入热点表');
     }

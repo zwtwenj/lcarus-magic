@@ -7,6 +7,7 @@ const { pool } = require('./db');
 const authRoutes = require('./routes/auth');
 const hotspotRoutes = require('./routes/hotspot');
 const cozeRoutes = require('./routes/coze');
+const soundRoutes = require('./routes/sound');
 
 const app = express();
 
@@ -21,13 +22,14 @@ app.use(
         secret: config.jwtSecret,
         algorithms: ['HS256'],
     }).unless({
-        path: ['/api/auth/login', '/api/coze/run'],
+        path: ['/api/auth/login', '/api/coze/run', '/api/hotspot', '/api/hotspot/refresh', '/api/hotspot/detail', '/api/sound/enroll', '/api/sound/uploads'],
     })
 );
 
 app.use('/api/auth', authRoutes);
 app.use('/api', hotspotRoutes);
 app.use('/api', cozeRoutes);
+app.use('/api', soundRoutes);
 
 // Handle errors for JWT validation
 app.use((err, req, res, next) => {

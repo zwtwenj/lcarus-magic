@@ -32,7 +32,7 @@ async function onSubmit() {
 
         localStorage.setItem('token', token)
         ElMessage.success('登录成功')
-        router.replace('/')
+        router.replace('/event')
     } catch (error) {
         const msg = error?.response?.data?.message || error?.message || '登录失败'
         ElMessage.error(msg)

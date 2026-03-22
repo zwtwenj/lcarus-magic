@@ -3,12 +3,19 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getHotspotDetailById, runCozeBySummary } from '../../api/generate'
+import { useGenerateStore } from './index.store'
+import subtitles from './subtitles.vue'
+import sound from './sound.vue'
+import material from './material.vue'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const detail = ref(null)
 const cozeLoading = ref(false)
+
+// 使用状态管理
+const { generateLoading, generateVideo } = useGenerateStore()
 
 const eventId = computed(() => String(route.query.id || ''))
 const parsedCoze = computed(() => {
@@ -122,6 +129,23 @@ watch(eventId, fetchDetail)
                     </el-descriptions>
                 </template>
             </el-skeleton>
+            
+            <!-- 视频生成配置面板 -->
+            <div v-if="detail" class="video-generate-panel">
+                <h3 class="panel-title">视频生成配置</h3>
+                
+                <!-- 引入组件 -->
+                <subtitles />
+                <sound />
+                <material />
+                
+                <!-- 一键生成按钮 -->
+                <div class="generate-button-container">
+                    <el-button type="primary" size="large" :loading="generateLoading" @click="generateVideo">
+                        一键生成视频
+                    </el-button>
+                </div>
+            </div>
         </el-card>
     </div>
 </template>
@@ -178,5 +202,45 @@ watch(eventId, fetchDetail)
 
 .coze-loading {
     color: #e6a23c;
+}
+
+/* 视频生成配置面板样式 */
+.video-generate-panel {
+    margin-top: 20px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+}
+
+.panel-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #303133;
+}
+
+.config-card {
+    margin-bottom: 20px;
+    border-radius: 8px;
+}
+
+.config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.config-content {
+    padding: 15px 0;
+}
+
+.generate-button-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.upload-demo {
+    margin-top: 10px;
 }
 </style>
