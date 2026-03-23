@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getHotspotDetailById, runCozeBySummary } from '../../api/generate'
 import { useGenerateStore } from './index.store'
+import { storeToRefs } from 'pinia'
 import subtitles from './subtitles.vue'
 import sound from './sound.vue'
 import material from './material.vue'
@@ -15,7 +16,8 @@ const detail = ref(null)
 const cozeLoading = ref(false)
 
 // 使用状态管理
-const { generateLoading, generateVideo } = useGenerateStore()
+const store = useGenerateStore()
+const { generateLoading, generateVideo } = storeToRefs(store)
 
 const eventId = computed(() => String(route.query.id || ''))
 const parsedCoze = computed(() => {

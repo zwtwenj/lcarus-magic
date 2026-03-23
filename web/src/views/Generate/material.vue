@@ -1,8 +1,10 @@
 <script setup>
 import { useGenerateStore } from './index.store'
+import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 
-const { materialType, videoDuration, materialList, handleMaterialChange, handleExceed } = useGenerateStore()
+const store = useGenerateStore()
+const { materialType, videoDuration, materialList, handleMaterialChange, handleExceed } = storeToRefs(store)
 </script>
 
 <template>

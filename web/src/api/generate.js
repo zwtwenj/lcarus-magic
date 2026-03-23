@@ -46,3 +46,24 @@ export function getHotspotDetailById(id) {
         params: { id },
     })
 }
+
+/**
+ * 获取默认参考音列表（sounds 表，需 token）
+ */
+export function getDefaultSounds() {
+    return requestWithToken.get('/sound/defaults')
+}
+
+/** 语音合成请求超时（含音色复刻轮询，需长于默认 30s） */
+const SOUND_SYNTHESIZE_TIMEOUT_MS = 180000
+
+/**
+ * 语音合成：参考音频公网 URL + 待合成文本（需 token）
+ * 成功时 `response.data` 含 `message` 与 `data`（audioBase64、format、voiceId、mimeType）
+ * @param {{ url: string, text: string }} payload
+ */
+export function synthesizeSpeech(payload) {
+    return requestWithToken.post('/sound/synthesize', payload, {
+        timeout: SOUND_SYNTHESIZE_TIMEOUT_MS,
+    })
+}

@@ -22,7 +22,7 @@ app.use(
         secret: config.jwtSecret,
         algorithms: ['HS256'],
     }).unless({
-        path: ['/api/auth/login', '/api/coze/run', '/api/hotspot', '/api/hotspot/refresh', '/api/hotspot/detail', '/api/sound/enroll', '/api/sound/uploads'],
+        path: ['/api/auth/login', '/api/coze/run', '/api/hotspot', '/api/hotspot/refresh', '/api/hotspot/detail', '/api/sound/enroll'],
     })
 );
 

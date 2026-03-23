@@ -1,7 +1,8 @@
 <script setup>
 import { useGenerateStore } from './index.store'
-
-const { subtitleType, subtitleSize, subtitleColor, subtitleContent } = useGenerateStore()
+import { storeToRefs } from 'pinia'
+const store = useGenerateStore()
+const { subtitleType, subtitleSize, subtitleColor, subtitleContent } = storeToRefs(store)
 </script>
 
 <template>

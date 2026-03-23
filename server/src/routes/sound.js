@@ -1,78 +1,117 @@
 const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
-const { uploadFileAndGetUrl } = require('../oss');
+const { pool } = require('../db');
+const { uploadBufferAndGetUrl } = require('../oss');
+const { synthesizeFromUrlAndText } = require('../cosyvoice');
 
-// 确保上传目录存在
-const uploadDir = path.join(__dirname, '..', 'uploads', 'sound');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// 配置multer存储
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, 'audio-' + uniqueSuffix + ext);
-    }
-});
-
-// 创建multer实例
 const upload = multer({
-    storage: storage,
+    storage: multer.memoryStorage(),
     limits: {
         fileSize: 50 * 1024 * 1024, // 50MB限制
     },
     fileFilter: function (req, file, cb) {
-        // 只允许上传wav文件
-        const ext = path.extname(file.originalname).toLowerCase();
-        if (ext === '.wav') {
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const mime = (file.mimetype || '').toLowerCase();
+        const okExt = ext === '.wav' || ext === '.mp3';
+        const okMime =
+            mime === 'audio/wav' ||
+            mime === 'audio/x-wav' ||
+            mime === 'audio/wave' ||
+            mime === 'audio/mpeg' ||
+            mime === 'audio/mp3';
+        if (okExt || okMime) {
             cb(null, true);
         } else {
-            cb(new Error('只支持上传wav格式的音频文件'), false);
+            cb(new Error('只支持上传 wav、mp3 格式的音频文件'), false);
         }
+    },
+});
+
+/**
+ * 从合成得到的 MP3 Buffer 解析时长（秒）
+ * @param {Buffer} buf
+ * @returns {Promise<number|undefined>}
+ */
+async function getSynthAudioDurationSeconds(buf) {
+    if (!Buffer.isBuffer(buf) || buf.length === 0) {
+        return undefined;
+    }
+    try {
+        const { parseBuffer } = await import('music-metadata');
+        const meta = await parseBuffer(buf, 'audio/mpeg');
+        const d = meta.format.duration;
+        if (typeof d === 'number' && Number.isFinite(d) && d >= 0) {
+            return Math.round(d * 1000) / 1000;
+        }
+    } catch (e) {
+        console.warn('[Sound] 解析合成音频时长失败:', e.message);
+    }
+    return undefined;
+}
+
+/**
+ * GET /api/sound/defaults
+ * 获取语音合成用默认参考音（sounds 表：id、title、ossurl）
+ */
+router.get('/sound/defaults', async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            'SELECT `id`, `title`, `ossurl` FROM `sounds` ORDER BY `id` ASC'
+        );
+        const data = (rows || []).map((row) => ({
+            id: row.id,
+            title: row.title,
+            ossUrl: row.ossurl,
+        }));
+        res.status(200).json({
+            message: '获取默认声音列表成功',
+            data,
+        });
+    } catch (error) {
+        console.error('[Sound] 获取默认声音失败:', error.message);
+        res.status(500).json({
+            message: '获取默认声音失败',
+            error: error.message,
+        });
     }
 });
 
 /**
  * POST /api/sound/enroll
- * 接收客户端传输的mov音频文件，用于声音复刻
+ * 接收 wav / mp3 参考音频，用于声音复刻
  */
 router.post('/sound/enroll', upload.single('audio'), async (req, res) => {
     try {
-        // 检查文件是否上传成功
         if (!req.file) {
             return res.status(400).json({
-                message: '请上传wav格式的音频文件'
+                message: '请上传 wav 或 mp3 格式的音频文件',
             });
         }
 
-        // 获取文件信息
-        const { filename, path: filePath, size, originalname } = req.file;
+        const { buffer, size, originalname, mimetype } = req.file;
+        let ext = path.extname(originalname || '').toLowerCase();
+        if (ext !== '.wav' && ext !== '.mp3') {
+            const m = (mimetype || '').toLowerCase();
+            if (m === 'audio/mpeg' || m === 'audio/mp3') {
+                ext = '.mp3';
+            } else {
+                ext = '.wav';
+            }
+        }
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const objectName = `sound/audio-${uniqueSuffix}${ext}`;
+        const ossUrl = await uploadBufferAndGetUrl(buffer, objectName);
 
-        // 上传到OSS
-        const ossFileName = `sound/${filename}`;
-        const ossUrl = await uploadFileAndGetUrl(filePath, ossFileName);
-
-        // 这里可以添加后续的声音复刻逻辑
-        // 例如调用cosyvoice API创建语音模型
-
-        // 返回成功响应
         res.status(200).json({
             message: '音频文件上传成功',
             data: {
-                filename,
+                filename: path.basename(objectName),
                 originalname,
                 size,
-                path: filePath,
                 ossUrl,
-                uploadTime: new Date().toISOString()
-            }
+                uploadTime: new Date().toISOString(),
+            },
         });
     } catch (error) {
         console.error('[Sound] 上传音频文件失败:', error.message);
@@ -84,37 +123,59 @@ router.post('/sound/enroll', upload.single('audio'), async (req, res) => {
 });
 
 /**
- * GET /api/sound/uploads
- * 获取上传的音频文件列表
+ * POST /api/sound/synthesize
+ * 入参：url（参考音频公网 URL）、text（待合成文本）
  */
-router.get('/sound/uploads', async (req, res) => {
+router.post('/sound/synthesize', async (req, res) => {
     try {
-        // 读取上传目录
-        const files = fs.readdirSync(uploadDir);
-        
-        // 过滤出wav文件
-        const wavFiles = files.filter(file => path.extname(file).toLowerCase() === '.wav');
-        
-        // 获取文件信息
-        const fileList = wavFiles.map(filename => {
-            const filePath = path.join(uploadDir, filename);
-            const stats = fs.statSync(filePath);
-            return {
-                filename,
-                size: stats.size,
-                mtime: stats.mtime.toISOString()
-            };
-        });
-        
+        const { url, text } = req.body || {};
+        if (url == null || text == null) {
+            return res.status(400).json({
+                message: '请提供 url 与 text',
+            });
+        }
+        if (typeof url !== 'string' || typeof text !== 'string') {
+            return res.status(400).json({
+                message: 'url 与 text 须为字符串',
+            });
+        }
+
+        const { audio, format, voiceId } = await synthesizeFromUrlAndText(
+            url,
+            text
+        );
+
+        const ext =
+            format && typeof format === 'string' ? `.${format.replace(/^\./, '')}` : '.mp3';
+        const synthFilename = `synth-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+        const ossObjectKey = `sound/${synthFilename}`;
+        const ossUrl = await uploadBufferAndGetUrl(audio, ossObjectKey);
+
+        const durationSeconds = await getSynthAudioDurationSeconds(audio);
+
         res.status(200).json({
-            message: '获取音频文件列表成功',
-            data: fileList
+            message: '语音合成成功',
+            data: {
+                format: format || 'mp3',
+                voiceId,
+                audioBase64: audio.toString('base64'),
+                mimeType: 'audio/mpeg',
+                ossUrl: ossUrl || undefined,
+                /** 合成音频时长（秒），解析失败时为 null */
+                durationSeconds:
+                    durationSeconds != null ? durationSeconds : null,
+            },
         });
     } catch (error) {
-        console.error('[Sound] 获取音频文件列表失败:', error.message);
-        res.status(500).json({
-            message: '获取音频文件列表失败',
-            error: error.message
+        console.error('[Sound] 语音合成失败:', error.message);
+        const status =
+            error.message === 'url is required' ||
+            error.message === 'text is required'
+                ? 400
+                : 500;
+        res.status(status).json({
+            message: status === 400 ? error.message : '语音合成失败',
+            error: error.message,
         });
     }
 });
