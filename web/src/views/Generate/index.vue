@@ -17,7 +17,23 @@ const cozeLoading = ref(false)
 
 // 使用状态管理
 const store = useGenerateStore()
-const { generateLoading, generateVideo } = storeToRefs(store)
+const { generateLoading } = storeToRefs(store)
+
+async function handleGenerateVideo() {
+    try {
+        const data = await store.generateVideo()
+        const n =
+            data?.count ??
+            data?.audios?.length ??
+            data?.videos?.length ??
+            0
+        ElMessage.success(
+            n > 0 ? `已生成 ${n} 条语音` : '生成完成'
+        )
+    } catch (e) {
+        ElMessage.error(e?.message || '生成失败')
+    }
+}
 
 const eventId = computed(() => String(route.query.id || ''))
 const parsedCoze = computed(() => {
@@ -137,13 +153,16 @@ watch(eventId, fetchDetail)
                 <h3 class="panel-title">视频生成配置</h3>
                 
                 <!-- 引入组件 -->
-                <subtitles />
+                <subtitles
+                    :event-description="parsedCoze.eventDescription"
+                    :event-id="eventId"
+                />
                 <sound />
                 <material />
                 
                 <!-- 一键生成按钮 -->
                 <div class="generate-button-container">
-                    <el-button type="primary" size="large" :loading="generateLoading" @click="generateVideo">
+                    <el-button type="primary" size="large" :loading="generateLoading" @click="handleGenerateVideo">
                         一键生成视频
                     </el-button>
                 </div>

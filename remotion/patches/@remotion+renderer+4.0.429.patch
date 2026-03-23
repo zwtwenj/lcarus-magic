@@ -1,0 +1,14 @@
+diff --git a/node_modules/@remotion/renderer/dist/options/audio-codec.js b/node_modules/@remotion/renderer/dist/options/audio-codec.js
+index 5f2989f..07c90bc 100644
+--- a/node_modules/@remotion/renderer/dist/options/audio-codec.js
++++ b/node_modules/@remotion/renderer/dist/options/audio-codec.js
+@@ -30,7 +30,8 @@ const audioCodecNames = [
+ ];
+ const mapAudioCodecToFfmpegAudioCodecName = (audioCodec) => {
+     if (audioCodec === 'aac') {
+-        return 'libfdk_aac';
++        // 系统 FFmpeg 常无 libfdk_aac，改用内置 aac 编码器（与 Remotion 默认 libfdk_aac 兼容性更好）
++        return 'aac';
+     }
+     if (audioCodec === 'mp3') {
+         return 'libmp3lame';

@@ -5,9 +5,12 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { synthesizeSpeech, getDefaultSounds } from '../../api/generate'
 
-// const { voiceType, voiceSpeed, voiceVolume, backgroundMusic } = useGenerateStore()
 const store = useGenerateStore()
-const { voiceType, voiceSpeed, voiceVolume, backgroundMusic } = storeToRefs(store)
+const { voiceUrl, voiceSpeed, voiceVolume, backgroundMusic } = storeToRefs(store)
+
+/** 选择「自定义」且尚未上传时，v-model 为该占位，与真实 ossUrl 区分 */
+const VOICE_CUSTOM = '__custom__'
+const isCustomVoice = computed(() => voiceUrl.value === VOICE_CUSTOM)
 
 // 语音上传相关
 const uploadLoading = ref(false)
@@ -45,19 +48,13 @@ const canPreviewSynthesis = computed(
 const defaultSounds = ref([])
 const defaultsLoading = ref(true)
 
-function isDefaultVoiceType(v) {
-    return typeof v === 'string' && v.startsWith('default:')
-}
-
 const selectedOssUrl = computed(() => {
-    const vt = voiceType.value
-    if (vt === 'custom') {
+    const v = voiceUrl.value
+    if (v === VOICE_CUSTOM) {
         return uploadedFile.value?.ossUrl || ''
     }
-    if (isDefaultVoiceType(vt)) {
-        const id = Number(vt.slice('default:'.length))
-        const row = defaultSounds.value.find((s) => s.id === id)
-        return row?.ossUrl || ''
+    if (typeof v === 'string' && /^https?:\/\//i.test(v)) {
+        return v
     }
     return ''
 })
@@ -65,7 +62,7 @@ const selectedOssUrl = computed(() => {
 const canPreviewVoice = computed(() => {
     const url = selectedOssUrl.value?.trim()
     if (!url) return false
-    if (voiceType.value === 'custom' && !uploadSuccess.value) return false
+    if (isCustomVoice.value && !uploadSuccess.value) return false
     return true
 })
 
@@ -77,7 +74,7 @@ function handlePreviewVoice() {
         ElMessage.warning('当前选择无可试听音频')
         return
     }
-    if (voiceType.value === 'custom' && !uploadSuccess.value) {
+    if (isCustomVoice.value && !uploadSuccess.value) {
         ElMessage.warning('请先上传参考音频')
         return
     }
@@ -116,24 +113,24 @@ onMounted(async () => {
         const { data } = await getDefaultSounds()
         const list = data?.data ?? []
         defaultSounds.value = list
-        if (list.length && voiceType.value === '') {
-            voiceType.value = `default:${list[0].id}`
-        } else if (!list.length && voiceType.value === '') {
-            voiceType.value = 'custom'
+        if (list.length && !voiceUrl.value) {
+            voiceUrl.value = list[0].ossUrl || list[0].ossurl || ''
+        } else if (!list.length && !voiceUrl.value) {
+            voiceUrl.value = VOICE_CUSTOM
         }
     } catch (e) {
         console.error(e)
         ElMessage.error('获取默认声音失败')
-        if (voiceType.value === '') {
-            voiceType.value = 'custom'
+        if (!voiceUrl.value) {
+            voiceUrl.value = VOICE_CUSTOM
         }
     } finally {
         defaultsLoading.value = false
     }
 })
 
-watch(voiceType, (v) => {
-    if (v !== 'custom') {
+watch(voiceUrl, (v) => {
+    if (v !== VOICE_CUSTOM) {
         uploadSuccess.value = false
         uploadedFile.value = null
     }
@@ -159,7 +156,11 @@ const handleUpload = async (file) => {
         
         const data = await response.json()
         uploadedFile.value = data.data
+        const u = String(data.data?.ossUrl || '').trim()
         uploadSuccess.value = true
+        if (u) {
+            store.voiceUrl = u
+        }
         ElMessage.success('音频文件上传成功，可用于声音复刻')
     } catch (error) {
         ElMessage.error('上传失败，请重试')
@@ -196,6 +197,7 @@ const beforeUpload = (file) => {
 const resetUpload = () => {
     uploadSuccess.value = false
     uploadedFile.value = null
+    store.voiceUrl = VOICE_CUSTOM
 }
 
 const handleSynthesize = async () => {
@@ -203,7 +205,7 @@ const handleSynthesize = async () => {
     const text = synthesisText.value?.trim()
     if (!ossUrl) {
         ElMessage.warning(
-            voiceType.value === 'custom'
+            isCustomVoice.value
                 ? '请先上传参考音频'
                 : '请选择有效的预设声音'
         )
@@ -268,18 +270,19 @@ onUnmounted(() => {
                 <el-form-item label="语音选择">
                     <div class="voice-select-row">
                         <el-select
-                            v-model="voiceType"
+                            style="width: 280px"
+                            v-model="voiceUrl"
                             class="voice-select-input"
                             placeholder="选择声音"
                             :loading="defaultsLoading"
                             :disabled="defaultsLoading"
                         >
-                            <el-option label="自定义" value="custom" />
+                            <el-option label="自定义" :value="VOICE_CUSTOM" />
                             <el-option
                                 v-for="s in defaultSounds"
                                 :key="s.id"
                                 :label="s.title"
-                                :value="`default:${s.id}`"
+                                :value="s.ossUrl || s.ossurl"
                             />
                         </el-select>
                         <el-button
@@ -308,7 +311,7 @@ onUnmounted(() => {
             </el-form-item> -->
             
             <!-- 语音上传功能 -->
-            <el-form-item label="语音上传" v-if="voiceType === 'custom'">
+            <el-form-item label="语音上传" v-if="isCustomVoice">
                 <el-upload
                     class="upload-demo"
                     :auto-upload="false"

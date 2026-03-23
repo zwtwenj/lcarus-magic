@@ -54,6 +54,13 @@ export function getDefaultSounds() {
     return requestWithToken.get('/sound/defaults')
 }
 
+/**
+ * 获取字幕列表全量（subtitles 表，需 token）
+ */
+export function getSubtitles() {
+    return requestWithToken.get('/subtitles')
+}
+
 /** 语音合成请求超时（含音色复刻轮询，需长于默认 30s） */
 const SOUND_SYNTHESIZE_TIMEOUT_MS = 180000
 
@@ -65,5 +72,17 @@ const SOUND_SYNTHESIZE_TIMEOUT_MS = 180000
 export function synthesizeSpeech(payload) {
     return requestWithToken.post('/sound/synthesize', payload, {
         timeout: SOUND_SYNTHESIZE_TIMEOUT_MS,
+    })
+}
+
+/** 一键生成字幕视频（可能多次 Remotion，耗时较长） */
+const ONE_CLICK_GENERATE_TIMEOUT_MS = 600000
+
+/**
+ * @param {{ subtitles_type: string, subtitle_segments?: string[], subtitles?: string[] }} payload
+ */
+export function oneClickGenerate(payload) {
+    return requestWithToken.post('/generate', payload, {
+        timeout: ONE_CLICK_GENERATE_TIMEOUT_MS,
     })
 }

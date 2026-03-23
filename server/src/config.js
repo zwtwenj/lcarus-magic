@@ -35,5 +35,8 @@ module.exports = {
     coze: {
         runUrl: process.env.COZE_RUN_URL || 'https://ns8v3cbwzq.coze.site/run',
     },
+    /** Remotion 渲染服务（index-cpu-ok.js 默认 5569） */
+    remotionRenderUrl:
+        process.env.REMOTION_RENDER_URL || 'http://localhost:27000',
     mysql,
 };

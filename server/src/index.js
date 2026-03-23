@@ -8,12 +8,21 @@ const authRoutes = require('./routes/auth');
 const hotspotRoutes = require('./routes/hotspot');
 const cozeRoutes = require('./routes/coze');
 const soundRoutes = require('./routes/sound');
+const subtitlesRoutes = require('./routes/subtitles');
+const generateRoutes = require('./routes/generate');
+const path = require('path');
 
 const app = express();
 
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+const generatedSubtitlesDir = path.join(__dirname, '..', 'generated', 'subtitles');
+app.use(
+    '/api/static/generated/subtitles',
+    express.static(generatedSubtitlesDir)
+);
 
 // JWT 鏍￠獙锛氶櫎 /api/auth 澶栧潎闇€鏈夋晥 token
 app.use(
@@ -30,6 +39,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api', hotspotRoutes);
 app.use('/api', cozeRoutes);
 app.use('/api', soundRoutes);
+app.use('/api', subtitlesRoutes);
+app.use('/api', generateRoutes);
 
 // Handle errors for JWT validation
 app.use((err, req, res, next) => {
