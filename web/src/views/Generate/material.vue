@@ -2,9 +2,43 @@
 import { useGenerateStore } from './index.store'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
+import { uploadMaterial } from '../../api/generate'
 
 const store = useGenerateStore()
-const { materialType, videoDuration, materialList, handleMaterialChange, handleExceed } = storeToRefs(store)
+const { materialType, videoDuration, materialList } = storeToRefs(store)
+
+const handleExceed = (...args) => store.handleExceed(...args)
+
+const handleMaterialChange = async (file) => {
+    if (!file?.raw) return
+    try {
+        const { data } = await uploadMaterial(file.raw)
+        const payload = data?.data || {}
+        const ossUrl = String(payload.ossUrl || '').trim()
+        if (!ossUrl) {
+            throw new Error('未拿到素材 OSS 地址')
+        }
+        const exists = (store.materialList || []).some(
+            (m) => String(m?.ossUrl || '').trim() === ossUrl
+        )
+        if (!exists) {
+            store.materialList = [
+                ...store.materialList,
+                {
+                    name: payload.originalname || file.name,
+                    ossUrl,
+                },
+            ]
+        }
+        ElMessage.success('素材上传成功')
+    } catch (error) {
+        ElMessage.error(error?.response?.data?.message || error?.message || '素材上传失败')
+    }
+}
+
+const removeMaterial = (index) => {
+    store.materialList = store.materialList.filter((_, i) => i !== index)
+}
 </script>
 
 <template>
@@ -50,7 +84,14 @@ const { materialType, videoDuration, materialList, handleMaterialChange, handleE
                     </template>
                 </el-upload>
                 <div v-if="materialList.length > 0" class="material-list">
-                    <el-tag v-for="(file, index) in materialList" :key="index" closable>{{ file.name }}</el-tag>
+                    <el-tag
+                        v-for="(file, index) in materialList"
+                        :key="index"
+                        closable
+                        @close="removeMaterial(index)"
+                    >
+                        {{ file.name }}
+                    </el-tag>
                 </div>
             </el-form-item>
         </div>

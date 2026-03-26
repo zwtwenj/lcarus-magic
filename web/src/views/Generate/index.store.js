@@ -29,6 +29,12 @@ export const useGenerateStore = defineStore('generate', {
                 .filter(Boolean)
 
             const voice_url = String(this.voiceUrl ?? '').trim()
+            const materialList = (this.materialList || [])
+                .map((m) => {
+                    if (typeof m === 'string') return m.trim()
+                    return String(m?.ossUrl || m?.url || '').trim()
+                })
+                .filter(Boolean)
 
             if (!voice_url || !/^https?:\/\//i.test(voice_url)) {
                 throw new Error('请选择预设语音或上传自定义参考音频')
@@ -44,6 +50,7 @@ export const useGenerateStore = defineStore('generate', {
                 const { data } = await oneClickGenerate({
                     voice_url,
                     subtitle_segments: lines,
+                    materialList,
                     ...(subtitleType ? { subtitles_type: subtitleType } : {}),
                 })
                 return data

@@ -75,6 +75,21 @@ export function synthesizeSpeech(payload) {
     })
 }
 
+/**
+ * 上传图片/视频素材到 OSS（需 token）
+ * @param {File} file
+ */
+export function uploadMaterial(file) {
+    const formData = new FormData()
+    formData.append('material', file)
+    return requestWithToken.post('/material/enroll', formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+        timeout: 180000,
+    })
+}
+
 /** 一键生成字幕视频（可能多次 Remotion，耗时较长） */
 const ONE_CLICK_GENERATE_TIMEOUT_MS = 600000
 

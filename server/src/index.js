@@ -11,6 +11,7 @@ const soundRoutes = require('./routes/sound');
 const subtitlesRoutes = require('./routes/subtitles');
 const generateRoutes = require('./routes/generate');
 const qwenVLRoutes = require('./routes/qwenVL');
+const qWenVLFlashRoutes = require('./routes/qWenVLFlash');
 const path = require('path');
 
 const app = express();
@@ -32,7 +33,7 @@ app.use(
         secret: config.jwtSecret,
         algorithms: ['HS256'],
     }).unless({
-        path: ['/api/auth/login', '/api/coze/run', '/api/hotspot', '/api/hotspot/refresh', '/api/hotspot/detail', '/api/sound/enroll', '/api/qwen-vl/tag'],
+        path: ['/api/auth/login', '/api/coze/run', '/api/hotspot', '/api/hotspot/refresh', '/api/hotspot/detail', '/api/sound/enroll', '/api/qwen-vl/tag', '/api/qwen-vl-flash/ask'],
     })
 );
 
@@ -43,6 +44,7 @@ app.use('/api', soundRoutes);
 app.use('/api', subtitlesRoutes);
 app.use('/api', generateRoutes);
 app.use('/api', qwenVLRoutes);
+app.use('/api', qWenVLFlashRoutes);
 
 // Handle errors for JWT validation
 app.use((err, req, res, next) => {

@@ -28,6 +28,21 @@ const upload = multer({
     },
 });
 
+const materialUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 200 * 1024 * 1024, // 200MB
+    },
+    fileFilter: function (req, file, cb) {
+        const mime = (file.mimetype || '').toLowerCase();
+        if (mime.startsWith('image/') || mime.startsWith('video/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('只支持上传图片或视频素材'), false);
+        }
+    },
+});
+
 /**
  * 从合成得到的 MP3 Buffer 解析时长（秒）
  * @param {Buffer} buf
@@ -118,6 +133,42 @@ router.post('/sound/enroll', upload.single('audio'), async (req, res) => {
         res.status(500).json({
             message: '上传音频文件失败',
             error: error.message
+        });
+    }
+});
+
+/**
+ * POST /api/material/enroll
+ * 接收图片 / 视频素材，上传到 OSS
+ */
+router.post('/material/enroll', materialUpload.single('material'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({
+                message: '请上传素材文件（图片或视频）',
+            });
+        }
+        const { buffer, size, originalname } = req.file;
+        const ext = path.extname(originalname || '').toLowerCase() || '';
+        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+        const objectName = `material/${uniqueSuffix}${ext}`;
+        const ossUrl = await uploadBufferAndGetUrl(buffer, objectName);
+
+        return res.status(200).json({
+            message: '素材上传成功',
+            data: {
+                filename: path.basename(objectName),
+                originalname,
+                size,
+                ossUrl,
+                uploadTime: new Date().toISOString(),
+            },
+        });
+    } catch (error) {
+        console.error('[Material] 上传素材失败:', error.message);
+        return res.status(500).json({
+            message: '上传素材失败',
+            error: error.message,
         });
     }
 });
