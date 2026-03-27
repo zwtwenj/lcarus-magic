@@ -9,17 +9,17 @@ const client = new OSS({
 });
 
 function accessUrlForObject(ossFileName, putResult) {
-    if (client.options.bucketACL === 'public-read') {
+    if (putResult && typeof putResult.url === 'string' && putResult.url.trim()) {
         return putResult.url;
     }
-    return client.signatureUrl(ossFileName, { expires: 3600 });
+    return `https://${client.options.bucket}.${client.options.region}.aliyuncs.com/${ossFileName}`;
 }
 
 async function uploadBufferAndGetUrl(buffer, ossFileName) {
     try {
         const result = await client.put(ossFileName, buffer);
         const fileUrl = accessUrlForObject(ossFileName, result);
-        console.log('文件访问 URL:', fileUrl);
+        // console.log('文件访问 URL:', fileUrl);
         return fileUrl;
     } catch (err) {
         console.error('上传失败:', err);
@@ -30,7 +30,7 @@ async function uploadFileAndGetUrl(localFilePath, ossFileName) {
     try {
         const result = await client.put(ossFileName, localFilePath);
         const fileUrl = accessUrlForObject(ossFileName, result);
-        console.log('文件访问 URL:', fileUrl);
+        // console.log('文件访问 URL:', fileUrl);
         return fileUrl;
     } catch (err) {
         console.error('上传失败:', err);
