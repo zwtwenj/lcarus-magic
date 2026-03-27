@@ -21,12 +21,15 @@ export function refreshHotspotByDate(date) {
 }
 
 /**
- * 调用 Coze 运行接口（需 token）
+ * 调用 Coze 事件详情接口（需 token）
  * @param {{ id: number|string, event_title: string }} payload
  */
-export function runCoze(payload) {
-    return requestWithToken.post('/coze/run', payload)
+export function runCozeEventDetail(payload) {
+    return requestWithToken.post('/coze/event-detail', payload)
 }
+
+/** 兼容旧调用名 */
+export const runCoze = runCozeEventDetail
 
 /**
  * 使用标题调用 Coze（需 token）
@@ -34,7 +37,7 @@ export function runCoze(payload) {
  * @param {string} eventTitle
  */
 export function runCozeBySummary(id, eventTitle) {
-    return runCoze({ id: String(id), event_title: eventTitle })
+    return runCozeEventDetail({ id: String(id), event_title: eventTitle })
 }
 
 /**

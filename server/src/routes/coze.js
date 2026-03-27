@@ -1,13 +1,67 @@
 const router = require('express').Router();
 const config = require('../config');
 const { pool } = require('../db');
-const env = require('dotenv').config();
+
+function getCozeToken(kind) {
+    if (kind === 'event-detail') {
+        return String(process.env.COZE_EVENT_DETAIL_TOKEN || '').trim();
+    }
+    if (kind === 'material-match') {
+        return String(process.env.COZE_MATERIAL_MATCH_TOKEN || '').trim();
+    }
+    return '';
+}
+
+async function postCozeWorkflow(url, payload, token) {
+    return fetch(url, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload || {}),
+    });
+}
 
 /**
- * POST /api/coze/run
+ * 调用 Coze 素材匹配工作流
+ * @param {{ voice_data: unknown[], image_data: unknown[] }} payload
+ * @returns {Promise<{ status: number, contentType: string, bodyText: string }>}
+ */
+async function callCozeMaterialMatch({ voice_data, image_data }) {
+    if (!Array.isArray(voice_data) || voice_data.length === 0) {
+        throw new Error('voice_data 必填，且必须为非空数组');
+    }
+    if (!Array.isArray(image_data) || image_data.length === 0) {
+        throw new Error('image_data 必填，且必须为非空数组');
+    }
+    const token = getCozeToken('material-match');
+    if (!token) {
+        throw new Error(
+            '缺少 COZE_MATERIAL_MATCH_TOKEN，请先在 server/.env 中配置'
+        );
+    }
+
+    const upstream = await postCozeWorkflow(
+        config.coze.materialMatchUrl,
+        { voice_data, image_data },
+        token
+    );
+    const contentType = upstream.headers.get('content-type') || '';
+    const bodyText = await upstream.text();
+    return {
+        status: upstream.status,
+        contentType,
+        bodyText,
+    };
+}
+
+/**
+ * 事件详情工作流（原 /api/coze/run 功能）
+ * POST /api/coze/event-detail
  * Body: { id: number|string, event_title: string }
  */
-router.post('/coze/run', async (req, res) => {
+async function handleCozeEventDetail(req, res) {
     const { id, event_title } = req.body || {};
     const rawId = String(id ?? '').trim();
     if (!/^\d+$/.test(rawId)) {
@@ -20,21 +74,22 @@ router.post('/coze/run', async (req, res) => {
         return res.status(400).json({ message: '请提供 event_title' });
     }
 
-    if (!env.parsed.COZE_TOKEN) {
+    const token = getCozeToken('event-detail');
+    if (!token) {
         return res
             .status(500)
-            .json({ message: '缺少 COZE_TOKEN，请先在 server/.env 中配置' });
+            .json({
+                message:
+                    '缺少 COZE_EVENT_DETAIL_TOKEN，请先在 server/.env 中配置',
+            });
     }
-    try {
-        const upstream = await fetch(config.coze.runUrl, {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${env.parsed.COZE_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ event_title: title }),
-        });
 
+    try {
+        const upstream = await postCozeWorkflow(
+            config.coze.runUrl,
+            { event_title: title },
+            token
+        );
         const contentType = upstream.headers.get('content-type') || '';
         const bodyText = await upstream.text();
 
@@ -55,12 +110,52 @@ router.post('/coze/run', async (req, res) => {
         }
         return res.status(upstream.status).send(bodyText);
     } catch (err) {
-        console.error('[Coze] 请求失败:', err.message);
+        console.error('[Coze:event-detail] 请求失败:', err.message);
         return res.status(502).json({
-            message: '调用 Coze API 失败',
+            message: '调用 Coze 事件详情工作流失败',
+            error: err.message,
+        });
+    }
+}
+
+router.post('/coze/event-detail', handleCozeEventDetail);
+
+/**
+ * 配音-素材匹配工作流（新接口）
+ * POST /api/coze/material-match
+ * Body: { voice_data: object[], image_data: object[] }
+ */
+router.post('/coze/material-match', async (req, res) => {
+    const { voice_data, image_data } = req.body || {};
+    try {
+        const { status, contentType, bodyText } = await callCozeMaterialMatch({
+            voice_data,
+            image_data,
+        });
+        if (contentType) {
+            res.setHeader('Content-Type', contentType);
+        }
+        return res.status(status).send(bodyText);
+    } catch (err) {
+        if (
+            err.message === 'voice_data 必填，且必须为非空数组' ||
+            err.message === 'image_data 必填，且必须为非空数组'
+        ) {
+            return res.status(400).json({ message: err.message });
+        }
+        if (
+            err.message ===
+            '缺少 COZE_MATERIAL_MATCH_TOKEN，请先在 server/.env 中配置'
+        ) {
+            return res.status(500).json({ message: err.message });
+        }
+        console.error('[Coze:material-match] 请求失败:', err.message);
+        return res.status(502).json({
+            message: '调用 Coze 素材匹配工作流失败',
             error: err.message,
         });
     }
 });
 
 module.exports = router;
+module.exports.callCozeMaterialMatch = callCozeMaterialMatch;

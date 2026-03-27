@@ -8,6 +8,7 @@ const { pool } = require('../db');
 const { uploadBufferAndGetUrl } = require('../oss');
 const { synthesizeFromUrlAndText } = require('../cosyvoice');
 const { askImage } = require('../qWenVLFlash');
+const { callCozeMaterialMatch } = require('./coze');
 
 const router = express.Router();
 
@@ -560,6 +561,33 @@ async function handleOneClickGenerate(req, res) {
         // }
 
         // 返回结果
+        let materialMatch = null;
+        if (
+            Array.isArray(speechStage.speechResult.audios) &&
+            speechStage.speechResult.audios.length > 0 &&
+            materialResult &&
+            Array.isArray(materialResult.materialTips) &&
+            materialResult.materialTips.length > 0
+        ) {
+            try {
+                const matchResp = await callCozeMaterialMatch({
+                    voice_data: speechStage.speechResult.audios,
+                    image_data: materialResult.materialTips,
+                });
+                materialMatch = {
+                    status: matchResp.status,
+                    contentType: matchResp.contentType || undefined,
+                    body: matchResp.bodyText,
+                };
+            } catch (err) {
+                console.error('[generate] material-match failed', err.message);
+                materialMatch = {
+                    status: 502,
+                    error: err.message || String(err),
+                };
+            }
+        }
+
         return res.json({
             success: true,
             message: materialResult ? '素材打标 + 语音字幕生成完成' : '语音字幕生成完成',
@@ -569,8 +597,9 @@ async function handleOneClickGenerate(req, res) {
             subtitles_type: subtitles_type || undefined,
             count: speechStage.speechResult.count,
             audios: speechStage.speechResult.audios,
-            // subtitles: subtitleStage.subtitles || undefined,
-            // videos: subtitleStage.videos,
+            subtitles: null,
+            videos: [],
+            material_match: materialMatch,
         });
     } catch (err) {
         console.error('[generate one-click]', err);

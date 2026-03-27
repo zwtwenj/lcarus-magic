@@ -1,4 +1,4 @@
-﻿const path = require('path');
+const path = require('path');
 
 // 始终从 server 目录加载，避免从仓库根目录启动时读不到文件
 const serverRoot = path.join(__dirname, '..');
@@ -34,9 +34,12 @@ module.exports = {
         process.env.HOTSPOT_UPSTREAM_URL || 'http://47.110.47.101:9400',
     coze: {
         runUrl: process.env.COZE_RUN_URL || 'https://ns8v3cbwzq.coze.site/run',
+        materialMatchUrl:
+            process.env.COZE_MATERIAL_MATCH_URL ||
+            'https://zjvcxg3wvv.coze.site/run',
     },
-    /** Remotion 渲染服务（index-cpu-ok.js 默认 5569） */
+    /** Remotion 渲染服务，与 remotion/index-cpu-ok.js 的 PORT 一致；用 127.0.0.1 避免 Windows 解析 localhost 为 ::1 而连错栈 */
     remotionRenderUrl:
-        process.env.REMOTION_RENDER_URL || 'http://localhost:27000',
+        process.env.REMOTION_RENDER_URL || 'http://127.0.0.1:5569',
     mysql,
 };
