@@ -54,7 +54,6 @@ async function callQwenVLFlash({
     const base = DEFAULT_API_BASE.replace(/\/$/, '');
     const url = `${base}${MULTIMODAL_GENERATION_PATH}`;
 
-    console.log('messages', JSON.stringify(messages))
     const payload = {
         model,
         input: { messages },
@@ -84,11 +83,15 @@ async function callQwenVLFlash({
 }
 
 /**
- * 多图问答便捷函数（批量图片一次调用）
+ * 多图问答便捷函数：每张图单独一次 API 调用（避免多图同批导致标签与图片错位）
  * @param {object} opts
  * @param {string[]} opts.images 图片 URL 数组
- * @param {string} opts.prompt 问题
+ * @param {string} opts.prompt 问题（每张图复用同一段文案）
  * @param {string} [opts.apiKey]
+ * @returns {Promise<{
+ *   results: Array<{ image: string, raw: object, reasoning: string, answer: string }>,
+ *   raw?: object, reasoning?: string, answer?: string
+ * }>}
  */
 async function askImage({ images, prompt, apiKey }) {
     if (!Array.isArray(images) || images.length === 0) {
@@ -105,17 +108,28 @@ async function askImage({ images, prompt, apiKey }) {
         throw new Error('prompt 必填');
     }
 
-    const messages = [
-        {
-            role: 'user',
-            content: [
-                ...normalizedImages.map((img) => ({ image: img })),
-                { text: question },
-            ],
-        },
-    ];
+    const results = [];
+    for (const img of normalizedImages) {
+        const messages = [
+            {
+                role: 'user',
+                content: [{ image: img }, { text: question }],
+            },
+        ];
+        const one = await callQwenVLFlash({ messages, apiKey });
+        results.push({ image: img, ...one });
+    }
 
-    return callQwenVLFlash({ messages, apiKey });
+    if (results.length === 1) {
+        const [first] = results;
+        return {
+            results,
+            raw: first.raw,
+            reasoning: first.reasoning,
+            answer: first.answer,
+        };
+    }
+    return { results };
 }
 
 module.exports = {

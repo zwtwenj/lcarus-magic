@@ -251,134 +251,335 @@ function normalizeMaterialUrls(materialList) {
 }
 
 /**
+ * 解析 Qwen 返回的「JSON」：模型常输出 markdown 代码块、或键未加双引号（非严格 JSON），
+ * 直接 JSON.parse 会在某张图上失败（例如 SyntaxError at position 1）。
+ * @param {string} answer
+ * @returns {string[]}
+ */
+function parseTipFromQwenAnswer(answer) {
+    const raw = String(answer || '').trim();
+    if (!raw) return [];
+
+    let body = raw;
+    const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fence) body = fence[1].trim();
+
+    function tryStrictJson(str) {
+        try {
+            const o = JSON.parse(str);
+            if (Array.isArray(o) && o[0] && typeof o[0] === 'object') {
+                const t = o[0].tip;
+                if (Array.isArray(t)) return t;
+            }
+            if (o && typeof o === 'object' && !Array.isArray(o) && Array.isArray(o.tip)) {
+                return o.tip;
+            }
+        } catch {
+            /* 非严格 JSON */
+        }
+        return null;
+    }
+
+    let tips = tryStrictJson(body);
+    if (tips !== null) return tips;
+
+    const b0 = body.indexOf('{');
+    const b1 = body.lastIndexOf('}');
+    if (b0 >= 0 && b1 > b0) {
+        const slice = body.slice(b0, b1 + 1);
+        tips = tryStrictJson(slice);
+        if (tips !== null) return tips;
+        try {
+            const o = new Function('return (' + slice + ')')();
+            if (o && typeof o === 'object' && !Array.isArray(o) && Array.isArray(o.tip)) {
+                return o.tip;
+            }
+        } catch {
+            /* ignore */
+        }
+    }
+
+    const a0 = body.indexOf('[');
+    const a1 = body.lastIndexOf(']');
+    if (a0 >= 0 && a1 > a0) {
+        tips = tryStrictJson(body.slice(a0, a1 + 1));
+        if (tips !== null) return tips;
+    }
+
+    return [];
+}
+
+/** material_tip.url_hash：对完整 URL 做 SHA-256 十六进制（64 字符） */
+function hashMaterialUrl(materialUrl) {
+    return crypto.createHash('sha256').update(String(materialUrl), 'utf8').digest('hex');
+}
+
+/** tip 存 varchar(1000)，用 JSON 数组字符串 */
+function tipArrayToDbColumn(tip) {
+    const s = JSON.stringify(Array.isArray(tip) ? tip : []);
+    return s.length > 1000 ? s.slice(0, 1000) : s;
+}
+
+/**
+ * 写入或更新 material_tip（先按 material_url 更新，无行则插入）
+ * @param {import('mysql2/promise').Pool} dbPool
+ */
+async function upsertMaterialTipRow(dbPool, materialUrl, tipArr) {
+    const urlHash = hashMaterialUrl(materialUrl);
+    const tipCol = tipArrayToDbColumn(tipArr);
+    const [upd] = await dbPool.query(
+        'UPDATE material_tip SET tip = ?, url_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE material_url = ?',
+        [tipCol, urlHash, materialUrl]
+    );
+    if (upd.affectedRows > 0) return;
+    await dbPool.query(
+        'INSERT INTO material_tip (material_url, url_hash, tip, created_at, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+        [materialUrl, urlHash, tipCol]
+    );
+}
+
+const MATERIAL_VL_TAG_PROMPT =
+    "帮我对你收到的这张图片打标，输出 json 格式为 {tip: []}，tip 为标签数组例如 ['清晨', '太阳']，只针对当前这一张图。";
+
+/**
+ * 素材列表：查库已有标签、对未命中 URL 调用 Qwen VL 打标并写入 material_tip。
+ * @param {import('mysql2/promise').Pool} dbPool
+ * @param {unknown[]} materialList parseOneClickBody 中的 materialList
+ * @returns {Promise<{ materialTips: object[], stats: { total: number, fromDb: number, calledQwenVlFlash: number } } | null>}
+ *   无有效素材 URL 时返回 null
+ */
+async function processMaterialListTips(dbPool, materialList) {
+    const materialUrls = normalizeMaterialUrls(materialList);
+    if (materialUrls.length === 0) return null;
+
+    const uniqueUrls = [...new Set(materialUrls)];
+    const [rows] = await dbPool.query(
+        'SELECT material_url, tip FROM material_tip WHERE material_url IN (?)',
+        [uniqueUrls]
+    );
+    const existingMap = new Map(
+        (rows || []).map((r) => [
+            String(r.material_url),
+            {
+                material_url: r.material_url,
+                tip: r.tip ?? null,
+            },
+        ])
+    );
+    const images = uniqueUrls.filter((url) => !existingMap.has(url));
+
+    const generated = [];
+    if (images.length > 0) {
+        const out = await askImage({ images, prompt: MATERIAL_VL_TAG_PROMPT });
+        for (const item of out.results || []) {
+            const tip = parseTipFromQwenAnswer(item.answer);
+            await upsertMaterialTipRow(dbPool, item.image, tip);
+            generated.push({
+                material_url: item.image,
+                tip,
+                source: 'qwen-vl-flash',
+            });
+        }
+    }
+
+    return {
+        materialTips: [...existingMap.values(), ...generated],
+        stats: {
+            total: uniqueUrls.length,
+            fromDb: existingMap.size,
+            calledQwenVlFlash: images.length,
+        },
+    };
+}
+
+/**
+ * 处理一键生成中的语音阶段：参数校验 + 文本归一化 + 调用 CosyVoice。
+ * @param {{ rawList: unknown, voice_url: string }} params
+ */
+async function processOneClickSpeechStage({ rawList, voice_url }) {
+    if (!Array.isArray(rawList)) {
+        return {
+            ok: false,
+            status: 400,
+            body: {
+                success: false,
+                stage: 'speech',
+                message: '缺少字幕列表：subtitles 或 subtitle_segments（须为字符串数组）',
+            },
+        };
+    }
+
+    const lines = rawList
+        .map((s) => (s == null ? '' : String(s).trim()))
+        .filter(Boolean);
+
+    if (lines.length === 0) {
+        return {
+            ok: false,
+            status: 400,
+            body: {
+                success: false,
+                stage: 'speech',
+                message: '字幕列表无有效条目',
+            },
+        };
+    }
+
+    if (!isValidVoiceUrl(voice_url)) {
+        return {
+            ok: false,
+            status: 400,
+            body: {
+                success: false,
+                stage: 'speech',
+                message: '缺少有效的 voice_url（参考音公网 HTTPS/HTTP 地址）',
+            },
+        };
+    }
+
+    const speechResult = await runOneClickSpeech({
+        voice_url,
+        lines,
+    });
+
+    if (!speechResult.ok) {
+        return {
+            ok: false,
+            status: speechResult.status,
+            body: {
+                success: false,
+                stage: 'speech',
+                message: speechResult.message,
+                index: speechResult.index,
+                text: speechResult.text,
+                detail: speechResult.detail,
+                audios: speechResult.audios,
+            },
+        };
+    }
+
+    return {
+        ok: true,
+        lines,
+        speechResult,
+    };
+}
+
+/**
+ * 处理一键生成中的字幕视频阶段：按 subtitles_type 决定是否渲染视频。
+ * @param {{ subtitles_type: string, lines: string[], speechResult: { audios: any[] } }} params
+ */
+async function processOneClickSubtitleStage({
+    subtitles_type,
+    lines,
+    speechResult,
+}) {
+    let videos = [];
+    let subtitles = [];
+    if (!subtitles_type) {
+        return { ok: true, videos, subtitles };
+    }
+
+    const videoResult = await runOneClickSubtitleVideos({
+        subtitles_type,
+        lines,
+        audios: speechResult.audios,
+    });
+    if (!videoResult.ok) {
+        return {
+            ok: false,
+            status: videoResult.status,
+            body: {
+                success: false,
+                stage: 'subtitle',
+                message: videoResult.message,
+                index: videoResult.index,
+                text: videoResult.text,
+                detail: videoResult.detail,
+                videos: videoResult.videos,
+                subtitles: videoResult.subtitles,
+                audios: speechResult.audios,
+            },
+        };
+    }
+    videos = videoResult.videos;
+    subtitles = videoResult.subtitles;
+    return { ok: true, videos, subtitles };
+}
+
+/**
  * POST /api/generate
  * POST /api/generate/subtitles
  */
 async function handleOneClickGenerate(req, res) {
     const { subtitles_type, rawList, voice_url, materialList } = parseOneClickBody(req.body);
 
-    const materialUrls = normalizeMaterialUrls(materialList);
-    if (materialUrls.length > 0) {
-        try {
-            const uniqueUrls = [...new Set(materialUrls)];
-            const [rows] = await pool.query(
-                'SELECT material_url, tip FROM material_tip WHERE material_url IN (?)',
-                [uniqueUrls]
-            );
-            const existingMap = new Map(
-                (rows || []).map((r) => [
-                    String(r.material_url),
-                    {
-                        material_url: r.material_url,
-                        tip: r.tip ?? null,
-                        source: 'db',
-                    },
-                ])
-            );
-            const images = uniqueUrls.filter((url) => !existingMap.has(url));
-            const PROMPT = "帮我对你收到的图片数组进行打标，输出数组json格式为[{url: 字符串, tip: []}]，假设你当前在处理图片数组下标0的图片，url中存储这张图片的地址，tip为标签数组例如['清晨', '太阳']";
-
-            const generated = [];
-            if (images.length > 0) {
-                const out = await askImage({ images, prompt: PROMPT });
-                console.log(out)
-            }
-
-            return res.json({
-                success: true,
-                message: 'materialList 打标试验完成',
-                materialTips: [...existingMap.values(), ...generated],
-                stats: {
-                    total: uniqueUrls.length,
-                    fromDb: existingMap.size,
-                    calledQwenVlFlash: images.length,
-                },
-            });
-        } catch (err) {
-            console.error('[generate materialList test]', err);
-            return res.status(500).json({
-                success: false,
-                message: err.message || 'materialList 打标试验失败',
-            });
-        }
+    let materialResult = null;
+    try {
+        // 处理素材打标阶段
+        materialResult = await processMaterialListTips(pool, materialList);
+        
+    } catch (err) {
+        console.error('[generate materialList test]', err);
+        return res.status(500).json({
+            success: false,
+            message: err.message || 'materialList 打标试验失败',
+        });
     }
 
-    // if (!Array.isArray(rawList)) {
-    //     return res.status(400).json({
-    //         message: '缺少字幕列表：subtitles 或 subtitle_segments（须为字符串数组）',
-    //     });
-    // }
+    try {
+        // 处理语音阶段
+        const speechStage = await processOneClickSpeechStage({
+            rawList,
+            voice_url,
+        });
+        if (!speechStage.ok) {
+            console.error(
+                '[generate] speech stage failed',
+                speechStage.status,
+                speechStage.body?.message,
+                speechStage.body?.detail || ''
+            );
+            return res.status(speechStage.status).json(speechStage.body);
+        }
 
-    // const lines = rawList
-    //     .map((s) => (s == null ? '' : String(s).trim()))
-    //     .filter(Boolean);
+        // 处理字幕视频阶段
+        // const subtitleStage = await processOneClickSubtitleStage({
+        //     subtitles_type,
+        //     lines: speechStage.lines,
+        //     speechResult: speechStage.speechResult,
+        // });
+        // if (!subtitleStage.ok) {
+        //     console.error(
+        //         '[generate] subtitle stage failed',
+        //         subtitleStage.status,
+        //         subtitleStage.body?.message,
+        //         subtitleStage.body?.detail || ''
+        //     );
+        //     return res.status(subtitleStage.status).json(subtitleStage.body);
+        // }
 
-    // if (lines.length === 0) {
-    //     return res.status(400).json({ message: '字幕列表无有效条目' });
-    // }
-
-    // if (!isValidVoiceUrl(voice_url)) {
-    //     return res.status(400).json({
-    //         message: '缺少有效的 voice_url（参考音公网 HTTPS/HTTP 地址）',
-    //     });
-    // }
-
-    // try {
-    //     const speechResult = await runOneClickSpeech({
-    //         voice_url,
-    //         lines,
-    //     });
-
-    //     if (!speechResult.ok) {
-    //         return res.status(speechResult.status).json({
-    //             message: speechResult.message,
-    //             index: speechResult.index,
-    //             text: speechResult.text,
-    //             detail: speechResult.detail,
-    //             audios: speechResult.audios,
-    //         });
-    //     }
-
-    //     let videos = [];
-    //     let subtitles = [];
-    //     if (subtitles_type) {
-    //         const videoResult = await runOneClickSubtitleVideos({
-    //             subtitles_type,
-    //             lines,
-    //             audios: speechResult.audios,
-    //         });
-    //         if (!videoResult.ok) {
-    //             return res.status(videoResult.status).json({
-    //                 message: videoResult.message,
-    //                 index: videoResult.index,
-    //                 text: videoResult.text,
-    //                 detail: videoResult.detail,
-    //                 videos: videoResult.videos,
-    //                 subtitles: videoResult.subtitles,
-    //                 audios: speechResult.audios,
-    //             });
-    //         }
-    //         videos = videoResult.videos;
-    //         subtitles = videoResult.subtitles;
-    //     }
-
-    //     return res.json({
-    //         success: true,
-    //         voice_url: speechResult.voice_url,
-    //         subtitles_type: subtitles_type || undefined,
-    //         count: speechResult.count,
-    //         audios: speechResult.audios,
-    //         subtitles: subtitles || undefined,
-    //         videos,
-    //     });
-    // } catch (err) {
-    //     console.error('[generate one-click]', err);
-    //     const msg =
-    //         err.message && err.message !== '[object Object]'
-    //             ? err.message
-    //             : '生成失败';
-    //     return res.status(500).json({ message: msg });
-    // }
+        // 返回结果
+        return res.json({
+            success: true,
+            message: materialResult ? '素材打标 + 语音字幕生成完成' : '语音字幕生成完成',
+            materialTips: materialResult ? materialResult.materialTips : undefined,
+            stats: materialResult ? materialResult.stats : undefined,
+            voice_url: speechStage.speechResult.voice_url,
+            subtitles_type: subtitles_type || undefined,
+            count: speechStage.speechResult.count,
+            audios: speechStage.speechResult.audios,
+            // subtitles: subtitleStage.subtitles || undefined,
+            // videos: subtitleStage.videos,
+        });
+    } catch (err) {
+        console.error('[generate one-click]', err);
+        const msg =
+            err.message && err.message !== '[object Object]'
+                ? err.message
+                : '生成失败';
+        return res.status(500).json({ success: false, message: msg });
+    }
 }
 
 router.post('/generate', handleOneClickGenerate);
