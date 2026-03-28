@@ -9,6 +9,9 @@ function getCozeToken(kind) {
     if (kind === 'material-match') {
         return String(process.env.COZE_MATERIAL_MATCH_TOKEN || '').trim();
     }
+    if (kind === 'ffmpeg') {
+        return String(process.env.COZE_FFMPEG_Token || '').trim();
+    }
     return '';
 }
 
@@ -45,6 +48,38 @@ async function callCozeMaterialMatch({ voice_data, image_data }) {
     const upstream = await postCozeWorkflow(
         config.coze.materialMatchUrl,
         { voice_data, image_data },
+        token
+    );
+    const contentType = upstream.headers.get('content-type') || '';
+    const bodyText = await upstream.text();
+    return {
+        status: upstream.status,
+        contentType,
+        bodyText,
+    };
+}
+
+/**
+ * 调用 Coze「生成 ffmpeg 命令」等工作流（请求体为 { json_input: object }）
+ * @param {Record<string, unknown>} jsonInput 与示例 JSON.stringify({"json_input": {}}) 中内层对象对应
+ * @returns {Promise<{ status: number, contentType: string, bodyText: string }>}
+ */
+async function callCozeFfmpegCommand(jsonInput) {
+    if (
+        jsonInput == null ||
+        typeof jsonInput !== 'object' ||
+        Array.isArray(jsonInput)
+    ) {
+        throw new Error('json_input 须为普通对象');
+    }
+    const token = getCozeToken('ffmpeg');
+    if (!token) {
+        throw new Error('缺少 COZE_FFMPEG_Token，请先在 server/.env 中配置');
+    }
+
+    const upstream = await postCozeWorkflow(
+        config.coze.ffmpegRunUrl,
+        { json_input: jsonInput },
         token
     );
     const contentType = upstream.headers.get('content-type') || '';
@@ -157,5 +192,46 @@ router.post('/coze/material-match', async (req, res) => {
     }
 });
 
+/**
+ * FFmpeg 命令生成（Coze 工作流）
+ * POST /api/coze/ffmpeg-command
+ * Body: { json_input: object }，与上游 JSON.stringify({ json_input: {} }) 一致
+ */
+router.post('/coze/ffmpeg-command', async (req, res) => {
+    const jsonInput = (req.body || {}).json_input;
+    if (
+        jsonInput == null ||
+        typeof jsonInput !== 'object' ||
+        Array.isArray(jsonInput)
+    ) {
+        return res.status(400).json({
+            message: 'body 须包含普通对象字段 json_input',
+        });
+    }
+    try {
+        const { status, contentType, bodyText } =
+            await callCozeFfmpegCommand(jsonInput);
+        if (contentType) {
+            res.setHeader('Content-Type', contentType);
+        }
+        return res.status(status).send(bodyText);
+    } catch (err) {
+        if (err.message === 'json_input 须为普通对象') {
+            return res.status(400).json({ message: err.message });
+        }
+        if (
+            err.message === '缺少 COZE_FFMPEG_Token，请先在 server/.env 中配置'
+        ) {
+            return res.status(500).json({ message: err.message });
+        }
+        console.error('[Coze:ffmpeg-command] 请求失败:', err.message);
+        return res.status(502).json({
+            message: '调用 Coze ffmpeg 工作流失败',
+            error: err.message,
+        });
+    }
+});
+
 module.exports = router;
 module.exports.callCozeMaterialMatch = callCozeMaterialMatch;
+module.exports.callCozeFfmpegCommand = callCozeFfmpegCommand;

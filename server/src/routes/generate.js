@@ -8,7 +8,8 @@ const { pool } = require('../db');
 const { uploadBufferAndGetUrl } = require('../oss');
 const { synthesizeFromUrlAndText } = require('../cosyvoice');
 const { askImage } = require('../qWenVLFlash');
-const { callCozeMaterialMatch } = require('./coze');
+const { callCozeMaterialMatch, callCozeFfmpegCommand } = require('./coze');
+const { buildDownloadFilesPayload } = require('../ffmpeg');
 
 const router = express.Router();
 
@@ -509,6 +510,99 @@ async function processOneClickSubtitleStage({
 }
 
 /**
+ * Coze 配音-素材匹配 → file-server 拉取文件 → Coze 生成 ffmpeg 命令串
+ * @param {{ audios: unknown[], materialTips?: unknown[] | null }} params
+ */
+async function processMaterialMatchDownloadAndFfmpeg({ audios, materialTips }) {
+    let materialMatch = null;
+    if (
+        Array.isArray(audios) &&
+        audios.length > 0 &&
+        Array.isArray(materialTips) &&
+        materialTips.length > 0
+    ) {
+        try {
+            const matchResp = await callCozeMaterialMatch({
+                voice_data: audios,
+                image_data: materialTips,
+            });
+            materialMatch = JSON.parse(matchResp.bodyText).matched_data;
+        } catch (err) {
+            console.error('[generate] material-match failed', err.message);
+            materialMatch = [];
+        }
+    }
+
+    const project = `download-${Date.now()}`;
+    const { localPathByUrl, files, ffmpegTimeline } = buildDownloadFilesPayload(
+        materialMatch,
+        project
+    );
+
+    const fileServerBase = String(config.fileServerBaseUrl || '').replace(/\/$/, '');
+    if (files.length > 0) {
+        try {
+            await axios.post(`${fileServerBase}/download-files`, {
+                project,
+                files,
+            });
+        } catch (err) {
+            console.error('[generate] file-server download failed', err.message);
+        }
+    }
+
+    let all_commands_joined = null;
+    let ffmpeg_run_id = null;
+    if (ffmpegTimeline.timeline && ffmpegTimeline.timeline.length > 0) {
+        try {
+            const ffResp = await callCozeFfmpegCommand(ffmpegTimeline);
+            if (ffResp.status >= 200 && ffResp.status < 300) {
+                const parsed = JSON.parse(ffResp.bodyText);
+                if (Array.isArray(parsed.all_commands)) {
+                    const lastCmd =
+                        parsed.all_commands[parsed.all_commands.length - 1];
+                    if (lastCmd != null) {
+                        all_commands_joined = Buffer.from(
+                            String(lastCmd),
+                            'utf8'
+                        ).toString('base64');
+                        if (fileServerBase) {
+                            try {
+                                await axios.post(
+                                    `${fileServerBase}/run-shell`,
+                                    { script: all_commands_joined },
+                                    { timeout: 620000 }
+                                );
+                            } catch (err) {
+                                console.error(
+                                    '[generate] file-server run-shell failed',
+                                    err.message
+                                );
+                            }
+                        }
+                    }
+                }
+                if (parsed.run_id != null) {
+                    ffmpeg_run_id = parsed.run_id;
+                }
+            }
+        } catch (err) {
+            console.error('[generate] Coze ffmpeg-command failed', err.message);
+        }
+    }
+
+    return {
+        materialMatch,
+        localPathByUrl,
+        project,
+        files,
+        ffmpegTimeline,
+        all_commands_joined,
+        ffmpeg_run_id,
+    };
+}
+
+/**
  * POST /api/generate
  * POST /api/generate/subtitles
  */
@@ -518,8 +612,7 @@ async function handleOneClickGenerate(req, res) {
     let materialResult = null;
     try {
         // 处理素材打标阶段
-        materialResult = await processMaterialListTips(pool, materialList);
-        
+        materialResult = await processMaterialListTips(pool, materialList);  
     } catch (err) {
         console.error('[generate materialList test]', err);
         return res.status(500).json({
@@ -560,33 +653,10 @@ async function handleOneClickGenerate(req, res) {
         //     return res.status(subtitleStage.status).json(subtitleStage.body);
         // }
 
-        // 返回结果
-        let materialMatch = null;
-        if (
-            Array.isArray(speechStage.speechResult.audios) &&
-            speechStage.speechResult.audios.length > 0 &&
-            materialResult &&
-            Array.isArray(materialResult.materialTips) &&
-            materialResult.materialTips.length > 0
-        ) {
-            try {
-                const matchResp = await callCozeMaterialMatch({
-                    voice_data: speechStage.speechResult.audios,
-                    image_data: materialResult.materialTips,
-                });
-                materialMatch = {
-                    status: matchResp.status,
-                    contentType: matchResp.contentType || undefined,
-                    body: matchResp.bodyText,
-                };
-            } catch (err) {
-                console.error('[generate] material-match failed', err.message);
-                materialMatch = {
-                    status: 502,
-                    error: err.message || String(err),
-                };
-            }
-        }
+        const pipeline = await processMaterialMatchDownloadAndFfmpeg({
+            audios: speechStage.speechResult.audios,
+            materialTips: materialResult?.materialTips,
+        });
 
         return res.json({
             success: true,
@@ -599,7 +669,14 @@ async function handleOneClickGenerate(req, res) {
             audios: speechStage.speechResult.audios,
             subtitles: null,
             videos: [],
-            material_match: materialMatch,
+            material_match: pipeline.materialMatch,
+            download_local: {
+                project: pipeline.project,
+                localPathByUrl: pipeline.localPathByUrl,
+            },
+            ffmpegTimeline: pipeline.ffmpegTimeline,
+            all_commands_joined: pipeline.all_commands_joined,
+            ffmpeg_run_id: pipeline.ffmpeg_run_id,
         });
     } catch (err) {
         console.error('[generate one-click]', err);
