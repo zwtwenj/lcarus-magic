@@ -77,6 +77,7 @@ async function callCozeFfmpegCommand(jsonInput) {
         throw new Error('缺少 COZE_FFMPEG_Token，请先在 server/.env 中配置');
     }
 
+    // console.log('jsonInput', jsonInput);
     const upstream = await postCozeWorkflow(
         config.coze.ffmpegRunUrl,
         { json_input: jsonInput },

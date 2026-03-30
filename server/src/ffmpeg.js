@@ -161,6 +161,17 @@ function buildDownloadFilesPayload(segmentList, projectDir) {
         ffmpegTimeline: {
             project: `./${project}`,
             timeline,
+            "subtitle": {
+                "url": `./${project}/text.srt`,
+                "bottom": 30,
+                "align": "center",
+                "fontsize": 8,
+            },
+            "output": {
+                "name": "final_video",
+                "width": 375,
+                "height": 667
+            }
         },
     };
 }

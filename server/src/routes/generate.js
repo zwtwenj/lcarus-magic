@@ -110,6 +110,46 @@ async function runOneClickSpeech({ voice_url, lines }) {
     const refUrl = String(voice_url || '').trim();
     const audios = [];
 
+    // return {
+    //     ok: true,
+    //     voice_url: refUrl,
+    //     count: 4,
+    //     audios: [
+    //         {
+    //             "index": 0,
+    //             "text": "2026年3月19日",
+    //             "voiceId": "cosyvoice-v3.5-flash-xjvwqmxw-cca42fb0d14d452aac69c9b46552face",
+    //             "ossUrl": "https://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/synth-1774862210026-df3fce3dac77.mp3",
+    //             "format": "mp3",
+    //             "durationSeconds": 2.22
+    //         },
+    //         {
+    //             "index": 1,
+    //             "text": "日本首相高市早苗访问美国",
+    //             "voiceId": "cosyvoice-v3.5-flash-dsomhobv-d4b6e060270148848e431b7f073cb9af",
+    //             "ossUrl": "https://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/synth-1774862222444-152e92f41e00.mp3",
+    //             "format": "mp3",
+    //             "durationSeconds": 3.5
+    //         },
+    //         {
+    //             "index": 2,
+    //             "text": "白宫网站随后公布了其访美照片",
+    //             "voiceId": "cosyvoice-v3.5-flash-bwijvfzk-18c29c7a022e4229bab6de2896501d8f",
+    //             "ossUrl": "https://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/synth-1774862234587-1a06d5013c21.mp3",
+    //             "format": "mp3",
+    //             "durationSeconds": 3.5
+    //         },
+    //         {
+    //             "index": 3,
+    //             "text": "照片中高市早苗有跳舞、张嘴、与美国总统特朗普交谈时身体前倾等姿态",
+    //             "voiceId": "cosyvoice-v3.5-flash-ctyfcqcd-e1d2f89c3acc4d3e86e82b7d436d85ac",
+    //             "ossUrl": "https://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/synth-1774862246049-d0add4ebbe37.mp3",
+    //             "format": "mp3",
+    //             "durationSeconds": 8.438
+    //         }
+    //     ]
+    // }
+
     for (let i = 0; i < lines.length; i++) {
         const text = lines[i];
         try {
@@ -540,6 +580,7 @@ async function processMaterialMatchDownloadAndFfmpeg({ audios, materialTips }) {
     );
 
     const fileServerBase = String(config.fileServerBaseUrl || '').replace(/\/$/, '');
+    files.push('https://icarus1.oss-cn-hangzhou.aliyuncs.com/subtitle/text.srt')
     if (files.length > 0) {
         try {
             await axios.post(`${fileServerBase}/download-files`, {
