@@ -42,9 +42,6 @@ module.exports = {
             process.env.COZE_FFMPEG_RUN_URL ||
             'https://kb63ygfhzp.coze.site/run',
     },
-    /** Remotion 渲染服务，与 remotion/index-cpu-ok.js 的 PORT 一致；用 127.0.0.1 避免 Windows 解析 localhost 为 ::1 而连错栈 */
-    remotionRenderUrl:
-        process.env.REMOTION_RENDER_URL || 'http://127.0.0.1:5569',
     /** file-server（download-files）；勿用 localhost，避免 Windows 上解析为 ::1 连不上 */
     fileServerBaseUrl:
         process.env.FILE_SERVER_URL || 'http://127.0.0.1:3000',
