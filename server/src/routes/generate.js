@@ -10,73 +10,9 @@ const { synthesizeFromUrlAndText } = require('../cosyvoice');
 const { askImage } = require('../qWenVLFlash');
 const { callCozeMaterialMatch, callCozeFfmpegCommand } = require('./coze');
 const { buildDownloadFilesPayload } = require('../ffmpeg');
+const { generateSrtFromAudios } = require('../subtitle');
 
 const router = express.Router();
-
-/** Remotion POST /api/render-video 单次 body 模板（字幕样式 id 在顶层 id，文案在 inputProps.TEXT1） */
-const REMOTION_RENDER_BODY_TEMPLATE = {
-    width: 1000,
-    height: 1000,
-    durationInFrames: 60,
-    transparent: true,
-    fps: 30,
-};
-
-function toDurationInFrames(durationSeconds) {
-    const fps = REMOTION_RENDER_BODY_TEMPLATE.fps;
-    const fallback = REMOTION_RENDER_BODY_TEMPLATE.durationInFrames;
-    if (
-        typeof durationSeconds !== 'number' ||
-        !Number.isFinite(durationSeconds) ||
-        durationSeconds <= 0
-    ) {
-        return fallback;
-    }
-    return Math.max(1, Math.round(durationSeconds * fps));
-}
-
-function subtitlesOutputDir() {
-    return path.join(__dirname, '..', '..', 'generated', 'subtitles');
-}
-
-/**
- * @param {string} subtitlesType AE 样式 id（如 guodong）
- * @param {string} text 单条字幕
- * @param {number|null|undefined} durationSeconds 当前字幕对应语音时长（秒）
- */
-function buildRemotionSubtitleBody(subtitlesType, text, durationSeconds) {
-    return {
-        ...REMOTION_RENDER_BODY_TEMPLATE,
-        durationInFrames: toDurationInFrames(durationSeconds),
-        id: subtitlesType,
-        inputProps: { TEXT1: text },
-        useGPU: false,
-    };
-}
-
-/**
- * @param {string} remotionBaseUrl 无尾斜杠
- * @param {object} body Remotion 请求体
- * @returns {Promise<{ data: Buffer, status: number }>}
- */
-async function postRemotionRender(remotionBaseUrl, body) {
-    const url = `${remotionBaseUrl}/api/render-video`;
-    const resp = await axios.post(url, body, {
-        responseType: 'arraybuffer',
-        timeout: 120000,
-        validateStatus: () => true,
-    });
-    return { data: Buffer.from(resp.data), status: resp.status };
-}
-
-function parseRemotionError(buffer) {
-    try {
-        const errJson = JSON.parse(buffer.toString('utf8'));
-        return errJson.details || errJson.error || null;
-    } catch {
-        return null;
-    }
-}
 
 async function getSynthAudioDurationSeconds(buf) {
     if (!Buffer.isBuffer(buf) || buf.length === 0) {
@@ -193,69 +129,6 @@ async function runOneClickSpeech({ voice_url, lines }) {
         voice_url: refUrl,
         count: audios.length,
         audios,
-    };
-}
-
-/**
- * 一键生成字幕视频（Remotion）：每条字幕按对应语音时长 durationInFrames 渲染。
- * @param {{ subtitles_type: string, lines: string[], audios?: Array<{ durationSeconds?: number | null }> }} params
- */
-async function runOneClickSubtitleVideos({ subtitles_type, lines, audios = [] }) {
-    const base = config.remotionRenderUrl.replace(/\/$/, '');
-    const outDir = subtitlesOutputDir();
-    fs.mkdirSync(outDir, { recursive: true });
-
-    const videos = [];
-    const subtitles = lines.map((text, index) => {
-        const durationSeconds = audios[index]?.durationSeconds ?? null;
-        return {
-            index,
-            text,
-            durationSeconds,
-            fps: REMOTION_RENDER_BODY_TEMPLATE.fps,
-            durationInFrames: toDurationInFrames(durationSeconds),
-        };
-    });
-
-    for (let i = 0; i < lines.length; i++) {
-        const text = lines[i];
-        const durationSeconds = audios[i]?.durationSeconds ?? null;
-        const body = buildRemotionSubtitleBody(
-            subtitles_type,
-            text,
-            durationSeconds
-        );
-        const { data, status } = await postRemotionRender(base, body);
-        if (status >= 400) {
-            const detail = parseRemotionError(data) || String(status);
-            return {
-                ok: false,
-                status: 502,
-                message: 'Remotion 渲染失败',
-                index: i,
-                text,
-                detail,
-                videos,
-                subtitles,
-            };
-        }
-        const fileName = `sub-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.mp4`;
-        const filePath = path.join(outDir, fileName);
-        fs.writeFileSync(filePath, data);
-        videos.push({
-            index: i,
-            text,
-            fileName,
-            url: `/api/static/generated/subtitles/${fileName}`,
-        });
-    }
-
-    return {
-        ok: true,
-        subtitles_type,
-        subtitles,
-        count: videos.length,
-        videos,
     };
 }
 
@@ -508,52 +381,25 @@ async function processOneClickSpeechStage({ rawList, voice_url }) {
 }
 
 /**
- * 处理一键生成中的字幕视频阶段：按 subtitles_type 决定是否渲染视频。
- * @param {{ subtitles_type: string, lines: string[], speechResult: { audios: any[] } }} params
+ * 根据配音 audios 生成 SRT 写入 server/tmp，并上传到 OSS（供 ffmpeg 下载列表使用）。
+ * @param {{ audios: unknown[], project: string }} params
+ * @returns {Promise<{ srtPath: string, srtOssUrl: string | undefined }>}
  */
-async function processOneClickSubtitleStage({
-    subtitles_type,
-    lines,
-    speechResult,
-}) {
-    let videos = [];
-    let subtitles = [];
-    if (!subtitles_type) {
-        return { ok: true, videos, subtitles };
-    }
-
-    const videoResult = await runOneClickSubtitleVideos({
-        subtitles_type,
-        lines,
-        audios: speechResult.audios,
-    });
-    if (!videoResult.ok) {
-        return {
-            ok: false,
-            status: videoResult.status,
-            body: {
-                success: false,
-                stage: 'subtitle',
-                message: videoResult.message,
-                index: videoResult.index,
-                text: videoResult.text,
-                detail: videoResult.detail,
-                videos: videoResult.videos,
-                subtitles: videoResult.subtitles,
-                audios: speechResult.audios,
-            },
-        };
-    }
-    videos = videoResult.videos;
-    subtitles = videoResult.subtitles;
-    return { ok: true, videos, subtitles };
+async function processSubtitleSrtAndUpload({ audios, project }) {
+    const srtPath = path.join(__dirname, '..', '..', 'tmp', `${project}.srt`);
+    generateSrtFromAudios(audios, srtPath);
+    const srtOssUrl = await uploadBufferAndGetUrl(
+        fs.readFileSync(srtPath),
+        `subtitle/${project}.srt`
+    );
+    return { srtPath, srtOssUrl };
 }
 
 /**
  * Coze 配音-素材匹配 → file-server 拉取文件 → Coze 生成 ffmpeg 命令串
- * @param {{ audios: unknown[], materialTips?: unknown[] | null }} params
+ * @param {{ audios: unknown[], materialTips?: unknown[] | null, project: string, srtOssUrl?: string }} params
  */
-async function processMaterialMatchDownloadAndFfmpeg({ audios, materialTips }) {
+async function processMaterialMatchDownloadAndFfmpeg({ audios, materialTips, project, srtOssUrl }) {
     let materialMatch = null;
     if (
         Array.isArray(audios) &&
@@ -573,14 +419,16 @@ async function processMaterialMatchDownloadAndFfmpeg({ audios, materialTips }) {
         }
     }
 
-    const project = `download-${Date.now()}`;
     const { localPathByUrl, files, ffmpegTimeline } = buildDownloadFilesPayload(
         materialMatch,
         project
     );
 
     const fileServerBase = String(config.fileServerBaseUrl || '').replace(/\/$/, '');
-    files.push('https://icarus1.oss-cn-hangzhou.aliyuncs.com/subtitle/text.srt')
+    const srtUrl = typeof srtOssUrl === 'string' && srtOssUrl.trim() ? srtOssUrl.trim() : '';
+    if (srtUrl) {
+        files.push(srtUrl);
+    }
     if (files.length > 0) {
         try {
             await axios.post(`${fileServerBase}/download-files`, {
@@ -648,11 +496,12 @@ async function processMaterialMatchDownloadAndFfmpeg({ audios, materialTips }) {
  * POST /api/generate/subtitles
  */
 async function handleOneClickGenerate(req, res) {
+    const project = `download-${Date.now()}`;
     const { subtitles_type, rawList, voice_url, materialList } = parseOneClickBody(req.body);
 
+    // 处理素材打标阶段
     let materialResult = null;
     try {
-        // 处理素材打标阶段
         materialResult = await processMaterialListTips(pool, materialList);  
     } catch (err) {
         console.error('[generate materialList test]', err);
@@ -662,9 +511,10 @@ async function handleOneClickGenerate(req, res) {
         });
     }
 
+    // 语音合成阶段
+    let speechStage = null
     try {
-        // 处理语音阶段
-        const speechStage = await processOneClickSpeechStage({
+        speechStage = await processOneClickSpeechStage({
             rawList,
             voice_url,
         });
@@ -677,48 +527,6 @@ async function handleOneClickGenerate(req, res) {
             );
             return res.status(speechStage.status).json(speechStage.body);
         }
-
-        // 处理字幕视频阶段
-        // const subtitleStage = await processOneClickSubtitleStage({
-        //     subtitles_type,
-        //     lines: speechStage.lines,
-        //     speechResult: speechStage.speechResult,
-        // });
-        // if (!subtitleStage.ok) {
-        //     console.error(
-        //         '[generate] subtitle stage failed',
-        //         subtitleStage.status,
-        //         subtitleStage.body?.message,
-        //         subtitleStage.body?.detail || ''
-        //     );
-        //     return res.status(subtitleStage.status).json(subtitleStage.body);
-        // }
-
-        const pipeline = await processMaterialMatchDownloadAndFfmpeg({
-            audios: speechStage.speechResult.audios,
-            materialTips: materialResult?.materialTips,
-        });
-
-        return res.json({
-            success: true,
-            message: materialResult ? '素材打标 + 语音字幕生成完成' : '语音字幕生成完成',
-            materialTips: materialResult ? materialResult.materialTips : undefined,
-            stats: materialResult ? materialResult.stats : undefined,
-            voice_url: speechStage.speechResult.voice_url,
-            subtitles_type: subtitles_type || undefined,
-            count: speechStage.speechResult.count,
-            audios: speechStage.speechResult.audios,
-            subtitles: null,
-            videos: [],
-            material_match: pipeline.materialMatch,
-            download_local: {
-                project: pipeline.project,
-                localPathByUrl: pipeline.localPathByUrl,
-            },
-            ffmpegTimeline: pipeline.ffmpegTimeline,
-            all_commands_joined: pipeline.all_commands_joined,
-            ffmpeg_run_id: pipeline.ffmpeg_run_id,
-        });
     } catch (err) {
         console.error('[generate one-click]', err);
         const msg =
@@ -727,13 +535,47 @@ async function handleOneClickGenerate(req, res) {
                 : '生成失败';
         return res.status(500).json({ success: false, message: msg });
     }
+
+
+    // 字幕srt文件生成和上传阶段
+    const { srtOssUrl } = await processSubtitleSrtAndUpload({
+        audios: speechStage.speechResult.audios,
+        project,
+    });
+
+    // 生成 ffmpeg 阶段：Coze 配音-素材匹配 → file-server 拉取文件 → Coze 生成 ffmpeg 命令串
+    const pipeline = await processMaterialMatchDownloadAndFfmpeg({
+        audios: speechStage.speechResult.audios,
+        materialTips: materialResult?.materialTips,
+        project,
+        srtOssUrl,
+    });
+
+    return res.json({
+        success: true,
+        message: materialResult ? '素材打标 + 语音字幕生成完成' : '语音字幕生成完成',
+        materialTips: materialResult ? materialResult.materialTips : undefined,
+        stats: materialResult ? materialResult.stats : undefined,
+        voice_url: speechStage.speechResult.voice_url,
+        subtitles_type: subtitles_type || undefined,
+        count: speechStage.speechResult.count,
+        audios: speechStage.speechResult.audios,
+        videos: [],
+        material_match: pipeline.materialMatch,
+        download_local: {
+            project: pipeline.project,
+            localPathByUrl: pipeline.localPathByUrl,
+        },
+        srt_oss_url: srtOssUrl || undefined,
+        ffmpegTimeline: pipeline.ffmpegTimeline,
+        all_commands_joined: pipeline.all_commands_joined,
+    });
 }
 
 router.post('/generate', handleOneClickGenerate);
 router.post('/generate/subtitles', handleOneClickGenerate);
 
 module.exports = router;
-module.exports.buildRemotionSubtitleBody = buildRemotionSubtitleBody;
-module.exports.runOneClickSubtitleVideos = runOneClickSubtitleVideos;
+module.exports.processSubtitleSrtAndUpload = processSubtitleSrtAndUpload;
 module.exports.runOneClickSpeech = runOneClickSpeech;
 module.exports.isValidVoiceUrl = isValidVoiceUrl;
