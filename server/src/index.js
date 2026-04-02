@@ -26,7 +26,7 @@ app.use(
     express.static(generatedSubtitlesDir)
 );
 
-// JWT 鏍￠獙锛氶櫎 /api/auth 澶栧潎闇€鏈夋晥 token
+// JWT 校验：除白名单路径外均需有效 token
 app.use(
     '/api',
     expressJwt({

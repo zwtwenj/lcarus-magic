@@ -5,12 +5,12 @@ const path = require('path');
 const crypto = require('crypto');
 const config = require('../config');
 const { pool } = require('../db');
-const { uploadBufferAndGetUrl } = require('../oss');
-const { synthesizeFromUrlAndText } = require('../cosyvoice');
-const { askImage } = require('../qWenVLFlash');
+const { uploadBufferAndGetUrl } = require('../lib/oss');
+const { synthesizeFromUrlAndText } = require('../lib/cosyvoice');
+const { askImage } = require('../lib/qWenVLFlash');
 const { callCozeMaterialMatch, callCozeFfmpegCommand } = require('./coze');
-const { buildDownloadFilesPayload } = require('../ffmpeg');
-const { generateSrtFromAudios } = require('../subtitle');
+const { buildDownloadFilesPayload } = require('../lib/ffmpeg');
+const { generateSrtFromAudios } = require('../lib/subtitle');
 
 const router = express.Router();
 

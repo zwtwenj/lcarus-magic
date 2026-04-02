@@ -2,13 +2,13 @@ const router = require('express').Router();
 const {
     resolveDateParam,
     fetchHotspotFromUpstream,
-} = require('../hotspotUpstream');
+} = require('../lib/hotspotUpstream');
 const {
     getHotDataById,
     getHotDataForDate,
     saveHotDataForDate,
     replaceHotDataForDate,
-} = require('../hotspotRepo');
+} = require('../lib/hotspotRepo');
 
 function looksLikeJson(ct) {
     return (ct || '').toLowerCase().includes('application/json');

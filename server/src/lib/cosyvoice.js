@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const dotenv = require('dotenv');
 
 // 加载.env文件
-dotenv.config({ path: path.join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 // 获取API密钥
 const apiKey = process.env.ali_key;

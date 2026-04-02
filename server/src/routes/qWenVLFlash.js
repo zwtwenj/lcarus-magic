@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { askImage } = require('../qWenVLFlash');
+const { askImage } = require('../lib/qWenVLFlash');
 const PROMPT = '帮我对你收到的图片进行打标，输出json格式为[{url: \'\', tip: []}]，url为图片的地址，tip为标签数组例如[\'清晨\', \'太阳\']';
 
 

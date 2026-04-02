@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { tagImage, DEFAULT_TAG_PROMPT } = require('../qwenVL');
+const { tagImage, DEFAULT_TAG_PROMPT } = require('../lib/qwenVL');
 
 function normalizeImageUrls(body) {
     const b = body || {};

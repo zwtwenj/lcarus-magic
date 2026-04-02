@@ -1,4 +1,4 @@
-const { pool } = require('./db');
+const { pool } = require('../db');
 
 function parseJsonArray(value) {
     if (Array.isArray(value)) return value;

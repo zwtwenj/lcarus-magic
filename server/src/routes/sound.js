@@ -2,8 +2,8 @@ const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
 const { pool } = require('../db');
-const { uploadBufferAndGetUrl } = require('../oss');
-const { synthesizeFromUrlAndText } = require('../cosyvoice');
+const { uploadBufferAndGetUrl } = require('../lib/oss');
+const { synthesizeFromUrlAndText } = require('../lib/cosyvoice');
 
 const upload = multer({
     storage: multer.memoryStorage(),
