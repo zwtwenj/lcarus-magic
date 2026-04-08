@@ -1,0 +1,18 @@
+[
+    {
+        "index":0,
+        "text":"2026年3月19日，",
+        "video_url":"1.mp3",
+        "format":"mp3",
+        "durationSeconds":2.847,
+        "matched_image_url":"1.webp",
+    },
+    {
+        "index":1,
+        "text":"日本首相高市早苗访问美国",
+        "video_url":"2.mp3",
+        "format":"mp3",
+        "durationSeconds":3.396,
+        "matched_image_url":"2.webp",
+    }
+]
