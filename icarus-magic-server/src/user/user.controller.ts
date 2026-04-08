@@ -1,7 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from './user.entity';
+import { DeleteResult } from 'typeorm';
+import { Profile } from './profile.entity';
+import { Logs } from '../logs/logs.entity';
 
 @Controller('user')
 export class UserController {
@@ -24,4 +34,21 @@ export class UserController {
   findUser(@Body('username') username: string): Promise<User | null> {
     return this.userService.find(username);
   }
+
+  @Post('remove')
+  removeUser(@Body('id') id: number): Promise<DeleteResult> {
+    return this.userService.remove(id);
+  }
+
+  @Get('getProfile')
+  getProfile(@Query('id', ParseIntPipe) id: number): Promise<Profile | null> {
+    return this.userService.findProfile(id);
+  }
+
+  @Get('getLogs')
+  getLogs(@Query('id', ParseIntPipe) id: number): Promise<Logs[]> {
+    return this.userService.findUserLogs(id);
+  }
+
+  // @Get('/logsByGroup')
 }
