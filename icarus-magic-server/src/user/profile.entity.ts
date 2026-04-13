@@ -18,7 +18,7 @@ export class Profile {
   @Column()
   photo!: string;
 
-  @OneToOne(() => User, (user) => user.profile)
-  @JoinColumn()
-  user!: User;
+  // @OneToOne(() => User, (user) => user.profile)
+  // @JoinColumn()
+  // user!: User;
 }

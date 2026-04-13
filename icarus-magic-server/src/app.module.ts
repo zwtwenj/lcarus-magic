@@ -6,8 +6,11 @@ import { User } from './user/user.entity';
 import { Profile } from './user/profile.entity';
 import { Roles } from './roles/roles.entity';
 import { Logs } from './logs/logs.entity';
+import { Task } from './task/task.entity';
+import { AuthModule } from './auth/auth.module'
 import { UserModule } from './user/user.module';
 import { LogsModule } from './logs/logs.module';
+import { TaskModule } from './task/task.module';
 
 
 @Module({
@@ -23,14 +26,16 @@ import { LogsModule } from './logs/logs.module';
         username: configService.get('MYSQL_USER'),
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
-        entities: [User, Profile, Roles, Logs],
+        entities: [User, Profile, Roles, Logs, Task],
         synchronize: true,
         logging: ['error', 'warn'],
       }),
       inject: [ConfigService],
     }),
+    AuthModule,
     UserModule,
     LogsModule,
+    TaskModule,
   ],
   controllers: [],
   providers: [],

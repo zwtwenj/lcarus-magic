@@ -34,16 +34,16 @@ export class UserService {
   remove(id: number) {
     return this.userRepository.delete(id);
   }
-  // 查询用户信息
-  async findProfile(id: number): Promise<Profile | null> {
-    const user = await this.userRepository.findOne({
-      where: {
-        id,
-      },
-      relations: ['profile'],
-    });
-    return user?.profile ?? null;
-  }
+  // // 查询用户信息
+  // async findProfile(id: number): Promise<Profile | null> {
+  //   const user = await this.userRepository.findOne({
+  //     where: {
+  //       id,
+  //     },
+  //     relations: ['profile'],
+  //   });
+  //   return user?.profile ?? null;
+  // }
   // 查询用户日志
   async findUserLogs(id: number): Promise<Logs[]> {
     const user = await this.userRepository.findOne({

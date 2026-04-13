@@ -10,6 +10,7 @@ import {
 import { Logs } from '../logs/logs.entity';
 import { Roles } from '../roles/roles.entity';
 import { Profile } from './profile.entity';
+import { Task } from '@/task/task.entity';
 
 @Entity()
 export class User {
@@ -25,10 +26,13 @@ export class User {
   @OneToMany(() => Logs, (logs) => logs.user)
   logs!: Logs[];
 
-  @ManyToMany(() => Roles, (roles) => roles.users)
-  @JoinTable()
-  roles!: Roles[];
+  @OneToMany(() => Task, (task) => task.user)
+  tasks!: Task[];
 
-  @OneToOne(() => Profile, (profile) => profile.user)
-  profile!: Profile;
+  // @ManyToMany(() => Roles, (roles) => roles.users)
+  // @JoinTable()
+  // roles!: Roles[];
+
+  // @OneToOne(() => Profile, (profile) => profile.user)
+  // profile!: Profile;
 }
