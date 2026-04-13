@@ -1,18 +1,33 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { login } from '../../api/auth';
 
 const router = useRouter();
 const username = ref('');
 const password = ref('');
 const rememberMe = ref(false);
+const loading = ref(false);
+const error = ref('');
 
 const handleLogin = async () => {
-  // 这里接入你的 NestJS 登录接口
-  console.log('登录信息:', { username: username.value, password: password.value });
-  
-  // 模拟登录成功跳转
-  // router.push('/dashboard');
+  try {
+    loading.value = true;
+    error.value = '';
+    
+    const response = await login({ username: username.value, password: password.value });
+    
+    // 存储 token 到缓存
+    localStorage.setItem('token', response.access_token);
+    
+    // 登录成功后跳转到首页
+    router.push('/');
+  } catch (err) {
+    console.error('登录失败:', err);
+    error.value = '登录失败，请检查用户名和密码';
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 
@@ -36,7 +51,7 @@ const handleLogin = async () => {
           <input 
             type="text" 
             v-model="username" 
-            placeholder="用户名 / 邮箱" 
+            placeholder="用户名" 
             required
             class="tech-input"
           />
@@ -66,8 +81,11 @@ const handleLogin = async () => {
           <a href="#" class="forgot-link">忘记密码？</a>
         </div>
 
-        <button type="submit" class="tech-button">
-          <span>登 录</span>
+        <div v-if="error" class="error-message">{{ error }}</div>
+
+        <button type="submit" class="tech-button" :disabled="loading">
+          <span v-if="!loading">登 录</span>
+          <span v-else>登录中...</span>
           <div class="button-shine"></div>
         </button>
       </form>
@@ -272,6 +290,13 @@ const handleLogin = async () => {
   &:hover {
     opacity: 0.8;
   }
+}
+
+.error-message {
+  color: #ff4757;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  text-align: center;
 }
 
 /* 科技感按钮 */
