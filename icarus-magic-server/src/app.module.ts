@@ -1,6 +1,4 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
@@ -9,6 +7,7 @@ import { Profile } from './user/profile.entity';
 import { Roles } from './roles/roles.entity';
 import { Logs } from './logs/logs.entity';
 import { UserModule } from './user/user.module';
+import { LogsModule } from './logs/logs.module';
 
 
 @Module({
@@ -26,13 +25,14 @@ import { UserModule } from './user/user.module';
         database: configService.get('MYSQL_DATABASE'),
         entities: [User, Profile, Roles, Logs],
         synchronize: true,
-        logging: true
+        logging: ['error', 'warn'],
       }),
       inject: [ConfigService],
     }),
     UserModule,
+    LogsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
