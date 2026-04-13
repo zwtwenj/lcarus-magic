@@ -18,8 +18,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
         const request = ctx.getRequest<Request>();
         // http状态码
         const status = exception.getStatus();
-        // const logger = ctx.getLogger<LoggerService>(Logger);
-        // logger.error(exception.message, request.url);
         response.status(status).json({
             code: status,
             message: exception.message,

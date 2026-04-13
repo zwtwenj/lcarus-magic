@@ -2,15 +2,15 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
-import { User } from './user/user.entity';
-import { Profile } from './user/profile.entity';
-import { Roles } from './roles/roles.entity';
-import { Logs } from './logs/logs.entity';
-import { Task } from './task/task.entity';
-import { AuthModule } from './auth/auth.module'
-import { UserModule } from './user/user.module';
-import { LogsModule } from './logs/logs.module';
-import { TaskModule } from './task/task.module';
+import { User } from './route/user/user.entity';
+import { Profile } from './route/user/profile.entity';
+import { Roles } from './route/roles/roles.entity';
+import { Logs } from './route/logs/logs.entity';
+import { Task } from './route/task/task.entity';
+import { AuthModule } from './route/auth/auth.module'
+import { UserModule } from './route/user/user.module';
+import { LogsModule } from './route/logs/logs.module';
+import { TaskModule } from './route/task/task.module';
 
 
 @Module({
