@@ -1,9 +1,24 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
+import { watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useMenuStore } from '../../store/menu.store';
 
 const router = useRouter();
+const route = useRoute();
 const menuStore = useMenuStore();
+
+// 监听路由变化，更新激活的菜单
+watch(
+  () => route.path,
+  (newPath: string) => {
+    // 找到与当前路径匹配的菜单
+    const matchedMenu = menuStore.menuItems.find(menu => menu.path === newPath);
+    if (matchedMenu) {
+      menuStore.setActiveMenu(matchedMenu.id);
+    }
+  },
+  { immediate: true }
+);
 
 const handleMenuClick = (menu: { id: string; path: string }) => {
   menuStore.setActiveMenu(menu.id);

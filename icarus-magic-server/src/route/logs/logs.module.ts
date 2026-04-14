@@ -62,7 +62,7 @@ const dailyInfoTransports = new DailyRotateFile({
             inject: [ConfigService],
             useFactory: (configService: ConfigService) => ({
                 transports: [
-                    consoleTransports,
+                    // consoleTransports,
                     configService.get('LOG_ON') ? dailyWarnTransports : null,
                     configService.get('LOG_ON') ? dailyErrorTransports : null,
                     configService.get('LOG_ON') ? dailyInfoTransports : null,

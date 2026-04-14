@@ -7,11 +7,12 @@ import { Profile } from './route/user/profile.entity';
 import { Roles } from './route/roles/roles.entity';
 import { Logs } from './route/logs/logs.entity';
 import { Task } from './route/task/task.entity';
+import { Project } from './route/project/project.entity';
 import { AuthModule } from './route/auth/auth.module'
 import { UserModule } from './route/user/user.module';
 import { LogsModule } from './route/logs/logs.module';
 import { TaskModule } from './route/task/task.module';
-
+import { ProjectModule } from './route/project/project.module';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { TaskModule } from './route/task/task.module';
         username: configService.get('MYSQL_USER'),
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
-        entities: [User, Profile, Roles, Logs, Task],
+        entities: [User, Profile, Roles, Logs, Task, Project],
         synchronize: true,
         logging: ['error', 'warn'],
       }),
@@ -36,6 +37,7 @@ import { TaskModule } from './route/task/task.module';
     UserModule,
     LogsModule,
     TaskModule,
+    ProjectModule,
   ],
   controllers: [],
   providers: [],
