@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
 import { User } from './route/user/user.entity';
-import { Profile } from './route/user/profile.entity';
 import { Roles } from './route/roles/roles.entity';
 import { Logs } from './route/logs/logs.entity';
 import { Task } from './route/task/task.entity';
@@ -27,7 +26,7 @@ import { ProjectModule } from './route/project/project.module';
         username: configService.get('MYSQL_USER'),
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
-        entities: [User, Profile, Roles, Logs, Task, Project],
+        entities: [User, Roles, Logs, Task, Project],
         synchronize: true,
         logging: ['error', 'warn'],
       }),

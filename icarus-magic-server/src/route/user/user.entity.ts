@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { Logs } from '../logs/logs.entity';
 import { Roles } from '../roles/roles.entity';
-import { Profile } from './profile.entity';
 import { Task } from '@/route/task/task.entity';
 import { Project } from '@/route/project/project.entity';
 

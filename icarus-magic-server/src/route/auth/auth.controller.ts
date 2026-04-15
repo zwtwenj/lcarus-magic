@@ -1,4 +1,5 @@
-import { Controller, Post, Body } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { JwtAuthGuard } from '../../transform/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { LoginDto } from './auth.dto';
 import { Public } from '../../transform/public.decorator';
@@ -11,5 +12,14 @@ export class AuthController {
   @Post('/login')
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  // 根据token获取用户信息
+  @Post('/getUser')
+  @UseGuards(JwtAuthGuard)
+  getUser(@Req() req: any) {
+    return {
+      user: req.user
+    };
   }
 }

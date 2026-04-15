@@ -2,8 +2,10 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { login } from '../../api/auth';
+import { useUserStore } from '@/store/user.store';
 
 const router = useRouter();
+const userStore = useUserStore();
 const username = ref('');
 const password = ref('');
 const rememberMe = ref(false);
@@ -19,6 +21,7 @@ const handleLogin = async () => {
     
     // 存储 token 到缓存
     localStorage.setItem('token', response.access_token);
+    userStore.setUserId(String(response.user.id));
     
     // 登录成功后跳转到首页
     router.push('/');

@@ -1,12 +1,18 @@
 <script setup lang="ts">
-// 项目页面
+import { useCreateDialog } from '@/hook/dialog.hooks'
+
+const { createProjectDialog } = useCreateDialog()
+
+const handleOpenDialog = () => {
+  createProjectDialog()
+}
 </script>
 
 <template>
   <div class="projects-page">
     <div class="page-header">
       <h1 class="page-title">项目管理</h1>
-      <button class="btn-primary">创建项目</button>
+      <button class="btn-primary" @click="handleOpenDialog">创建项目</button>
     </div>
     
     <div class="projects-list">

@@ -2,3 +2,57 @@
     padding: 0;
     margin: 0;
 }
+
+.magic-dialog{
+  padding: 0 !important;
+}
+.magic-dialog .el-dialog {
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, rgba(22, 26, 46, 0.95), rgba(12, 15, 28, 0.95)) padding-box,
+    linear-gradient(135deg, rgba(0, 242, 255, 0.38), rgba(112, 0, 255, 0.3)) border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 26px rgba(0, 242, 255, 0.12);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+.magic-dialog-overlay {
+  background: rgba(4, 7, 20, 0.72) !important;
+  backdrop-filter: blur(3px);
+}
+
+.magic-dialog .el-dialog__header {
+  margin-right: 0;
+  padding: 16px 20px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(90deg, rgba(0, 242, 255, 0.5), rgba(112, 0, 255, 0.08));
+}
+
+.magic-dialog .el-dialog__title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  /* text-shadow: 0 0 14px rgba(0, 242, 255, 0.8); */
+}
+
+.magic-dialog .el-dialog__headerbtn .el-dialog__close {
+  /* color: #9ea8c0; */
+  transition: color 0.25s ease, transform 0.25s ease;
+}
+
+.magic-dialog .el-dialog__headerbtn .el-dialog__close:hover {
+  transform: rotate(90deg);
+}
+
+.magic-dialog .el-dialog__body {
+  padding: 22px 20px;
+  line-height: 1.6;
+  background: transparent;
+}
+
+.magic-dialog .el-dialog__footer {
+  padding: 14px 20px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}

@@ -11,7 +11,6 @@ import { UserService } from './user.service';
 import { ConfigService } from '@nestjs/config';
 import { User } from './user.entity';
 import { DeleteResult } from 'typeorm';
-import { Profile } from './profile.entity';
 import { Logs } from '../logs/logs.entity';
 // import { Logger } from 'nestjs-pino';
 

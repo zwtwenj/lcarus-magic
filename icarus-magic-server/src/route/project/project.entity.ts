@@ -15,8 +15,8 @@ export class Project {
   @Column()
   status!: string;
 
-//   @Column()
-//   material!: string[];
+  //   @Column()
+  //   material!: string[];
 
   @ManyToOne(() => User, (user) => user.projects)
   user!: User;

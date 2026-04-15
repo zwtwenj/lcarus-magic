@@ -1,46 +1,89 @@
-import { createApp, h, type Component, type App } from 'vue'
-import ElementPlus from 'element-plus'
+import { getCurrentInstance, h, createVNode, render, defineComponent, ref } from 'vue'
+import type { Component, Ref } from 'vue'
+import { ElDialog, type DialogProps } from 'element-plus'
+import { v4 as uuidv4 } from 'uuid'
 
-interface DialogOptions {
-  props?: Record<string, any>
-  on?: {
-    confirm?: (data: any) => void
-    cancel?: () => void
+interface DialogConfig extends Partial<DialogProps> {
+  customClass?: string
+  modalClass?: string
+  onClose?: () => void
+  onClosed?: () => void
+}
+
+interface DialogInstance {
+  close: () => void
+}
+
+declare global {
+  interface Window {
+    dialogs: Record<string, DialogInstance>
   }
 }
 
-export function openDialog<T extends Component>(
-  component: T,
-  options: DialogOptions = {}
-): App {
-  const { props = {}, on = {} } = options
-
+export function createDialog(
+  component: Component,
+  props: Record<string, any> = {},
+  dialogConfig: DialogConfig = {}
+) {
+  const inst = getCurrentInstance()
+  const appContext = inst?.appContext
   const container = document.createElement('div')
   document.body.appendChild(container)
+  const visible: Ref<boolean> = ref(true)
 
-  const app = createApp({
-    render() {
-      return h(component, {
-        modelValue: true,
-        ...props,
-        'onUpdate:modelValue': (val: boolean) => {
-          if (!val) {
-            setTimeout(() => {
-              app.unmount()
-              if (document.body.contains(container)) {
-                document.body.removeChild(container)
-              }
-            }, 300)
-          }
+  const close = () => {
+    visible.value = false
+    const dialogId = Object.keys(window.dialogs || {}).find(id => window.dialogs[id]?.close === close)
+    if (dialogId) {
+      delete window.dialogs[dialogId]
+    }
+  }
+
+  const mergedCustomClass = ['magic-dialog', dialogConfig.customClass].filter(Boolean).join(' ')
+  const mergedModalClass = ['magic-dialog-overlay', dialogConfig.modalClass].filter(Boolean).join(' ')
+
+  const DialogWrapper = defineComponent({
+    setup() {
+      return () => h(
+        ElDialog,
+        {
+          modelValue: visible.value,
+          closeOnClickModal: false,
+          ...dialogConfig,
+          class: mergedCustomClass,
+          modalClass: mergedModalClass,
+          'onUpdate:modelValue': (val: boolean) => {
+            visible.value = val
+          },
+          onClose: () => {
+            dialogConfig.onClose?.()
+            close()
+          },
+          onClosed: () => {
+            dialogConfig.onClosed?.()
+            render(null, container)
+            if (document.body.contains(container)) {
+              document.body.removeChild(container)
+            }
+          },
         },
-        onConfirm: on.confirm,
-        onCancel: on.cancel
-      })
+        {
+          default: () => h(component, { ...props, onClose: close }),
+        }
+      )
     }
   })
 
-  app.use(ElementPlus)
-  app.mount(container)
+  const vnode = createVNode(DialogWrapper)
 
-  return app
+  if (appContext) vnode.appContext = appContext
+  render(vnode, container)
+
+  const dialogId = uuidv4()
+  if (!window.dialogs) {
+    window.dialogs = {}
+  }
+  window.dialogs[dialogId] = { close }
+
+  return vnode
 }

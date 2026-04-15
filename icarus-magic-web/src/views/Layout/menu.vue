@@ -15,6 +15,16 @@ watch(
     const matchedMenu = menuStore.menuItems.find(menu => menu.path === newPath);
     if (matchedMenu) {
       menuStore.setActiveMenu(matchedMenu.id);
+      return;
+    }
+
+    // 未匹配到时默认选中第一个菜单，并跳转到其页面
+    const firstMenu = menuStore.menuItems[0];
+    if (firstMenu) {
+      menuStore.setActiveMenu(firstMenu.id);
+      if (newPath !== firstMenu.path) {
+        router.replace(firstMenu.path);
+      }
     }
   },
   { immediate: true }

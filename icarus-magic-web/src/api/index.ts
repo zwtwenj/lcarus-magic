@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
 
 const request = axios.create({
   baseURL: '/api',
@@ -30,13 +31,15 @@ request.interceptors.response.use(
       return res.data
     } else {
       // 其他状态码处理
-      console.error('请求失败:', res.message)
-      return Promise.reject(new Error(res.message || '请求失败'))
+      const message = res.message || '请求失败'
+      ElMessage.error(message)
+      return Promise.reject(new Error(message))
     }
   },
   (error) => {
-    console.error('网络错误:', error)
-    return Promise.reject(error)
+    const message = error?.response?.data?.message || error?.message || '网络错误'
+    ElMessage.error(message)
+    return Promise.reject(new Error(message))
   }
 )
 

@@ -22,4 +22,19 @@ export const login = async (params: LoginParams): Promise<LoginResponse> => {
   return response;
 };
 
+// 获取用户信息响应接口
+export interface GetUserResponse {
+  user: {
+    userId: number;
+    username: string;
+    // 其他用户字段
+  };
+}
+
+// 获取用户信息 API
+export const getUser = async (): Promise<GetUserResponse> => {
+  const response = await request.post<GetUserResponse>('/auth/getUser') as unknown as GetUserResponse;
+  return response;
+};
+
 
