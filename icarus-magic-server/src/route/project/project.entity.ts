@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
 import { User } from '../user/user.entity';
 
 @Entity()
@@ -14,6 +14,9 @@ export class Project {
 
   @Column()
   status!: string;
+
+  @CreateDateColumn()
+  createdAt!: Date;
 
   //   @Column()
   //   material!: string[];

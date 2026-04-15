@@ -1,4 +1,4 @@
-import { createDialog } from '@/utils/dialog'
+import { createDialog } from '@/utils/dialog.ts'
 
 export const useCreateDialog = () => {
   // 创建项目

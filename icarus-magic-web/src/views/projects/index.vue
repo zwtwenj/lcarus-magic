@@ -1,11 +1,53 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useCreateDialog } from '@/hook/dialog.hooks'
+import { listProjects, type ProjectItem } from '@/api/project'
+import { useUserStore } from '@/store/user.store'
+import { ElMessage } from 'element-plus'
 
 const { createProjectDialog } = useCreateDialog()
+const userStore = useUserStore()
+
+const projects = ref<ProjectItem[]>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(10)
+const loading = ref(false)
+
+// 获取项目列表
+const fetchProjects = async () => {
+  loading.value = true
+  try {
+    const response = await listProjects({
+      page: page.value,
+      page_size: pageSize.value,
+      userId: userStore.userId
+    })
+    projects.value = response.list
+    total.value = response.total
+  } catch (error) {
+    console.error('获取项目列表失败:', error)
+    ElMessage.error('获取项目列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 处理创建项目成功后的刷新
+const handleProjectCreated = () => {
+  fetchProjects()
+}
 
 const handleOpenDialog = () => {
-  createProjectDialog()
+  createProjectDialog({
+    onSuccess: handleProjectCreated
+  })
 }
+
+// 组件挂载时获取项目列表
+onMounted(() => {
+  fetchProjects()
+})
 </script>
 
 <template>
@@ -15,17 +57,20 @@ const handleOpenDialog = () => {
       <button class="btn-primary" @click="handleOpenDialog">创建项目</button>
     </div>
     
-    <div class="projects-list">
-      <div class="project-card">
+    <div class="projects-list" v-if="!loading">
+      <div v-if="projects.length === 0" class="empty-state">
+        <p>暂无项目</p>
+        <button class="btn-primary" @click="handleOpenDialog">创建第一个项目</button>
+      </div>
+      <div v-else class="project-card" v-for="project in projects" :key="project.id">
         <div class="project-card-header">
-          <h3 class="project-name">项目 1</h3>
-          <span class="project-status">进行中</span>
+          <h3 class="project-name">{{ project.name }}</h3>
+          <span class="project-status" :class="project.status">{{ project.status === 'pending' ? '进行中' : project.status }}</span>
         </div>
         <div class="project-card-body">
-          <p class="project-description">这是一个视频合成项目</p>
+          <p class="project-description">{{ project.description }}</p>
           <div class="project-meta">
-            <span class="meta-item">创建时间: 2026-04-13</span>
-            <span class="meta-item">任务数: 5</span>
+            <span class="meta-item">创建时间: {{ project.createdAt }}</span>
           </div>
         </div>
         <div class="project-card-footer">
@@ -33,24 +78,11 @@ const handleOpenDialog = () => {
           <button class="btn-secondary">编辑</button>
         </div>
       </div>
-      
-      <div class="project-card">
-        <div class="project-card-header">
-          <h3 class="project-name">项目 2</h3>
-          <span class="project-status">已完成</span>
-        </div>
-        <div class="project-card-body">
-          <p class="project-description">这是另一个视频合成项目</p>
-          <div class="project-meta">
-            <span class="meta-item">创建时间: 2026-04-12</span>
-            <span class="meta-item">任务数: 3</span>
-          </div>
-        </div>
-        <div class="project-card-footer">
-          <button class="btn-secondary">查看详情</button>
-          <button class="btn-secondary">编辑</button>
-        </div>
-      </div>
+    </div>
+    
+    <div v-else class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>加载中...</p>
     </div>
   </div>
 </template>
@@ -93,6 +125,52 @@ const handleOpenDialog = () => {
     gap: 1.5rem;
   }
   
+  .empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    text-align: center;
+    
+    p {
+      font-size: 1.1rem;
+      color: #aaa;
+      margin-bottom: 1.5rem;
+    }
+  }
+  
+  .loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid #00f2ff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+    
+    p {
+      color: #aaa;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  }
+  
   .project-card {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -125,12 +203,12 @@ const handleOpenDialog = () => {
         font-size: 0.8rem;
         font-weight: 500;
         
-        &[class*="进行中"] {
+        &.pending {
           background: rgba(0, 242, 255, 0.2);
           color: #00f2ff;
         }
         
-        &[class*="已完成"] {
+        &.completed {
           background: rgba(0, 255, 128, 0.2);
           color: #00ff80;
         }

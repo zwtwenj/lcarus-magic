@@ -35,6 +35,9 @@ importers:
       class-validator:
         specifier: ^0.15.1
         version: 0.15.1
+      dayjs:
+        specifier: ^1.11.20
+        version: 1.11.20
       mysql2:
         specifier: ^3.20.0
         version: 3.20.0(@types/node@24.12.2)

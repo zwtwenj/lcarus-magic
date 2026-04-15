@@ -36,5 +36,3 @@ export const getUser = async (): Promise<GetUserResponse> => {
   const response = await request.post<GetUserResponse>('/auth/getUser') as unknown as GetUserResponse;
   return response;
 };
-
-

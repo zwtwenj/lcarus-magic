@@ -30,12 +30,12 @@ const handleLogout = () => {
         </button>
       </div>
       
-      <div class="nav-center">
+      <!-- <div class="nav-center">
         <div class="nav-search">
           <input type="text" placeholder="搜索项目或任务..." class="search-input" />
           <span class="search-icon">🔍</span>
         </div>
-      </div>
+      </div> -->
       
       <div class="nav-right">
         <div class="nav-notifications">

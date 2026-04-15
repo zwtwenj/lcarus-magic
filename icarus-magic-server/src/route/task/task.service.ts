@@ -14,7 +14,6 @@ export class TaskService {
     // 分页查询用户任务
     async findTaskByUserId(dto: TaskDto) {
         const { userId, type, page, page_size, title, status } = dto;
-        console.log(page, page_size);
         const userIdNum = parseInt(userId);
 
         const query = this.taskRepository

@@ -1,7 +1,8 @@
-import { getCurrentInstance, h, createVNode, render, defineComponent, ref } from 'vue'
+import { h, defineComponent, ref, render, createVNode } from 'vue'
 import type { Component, Ref } from 'vue'
 import { ElDialog, type DialogProps } from 'element-plus'
 import { v4 as uuidv4 } from 'uuid'
+import { app } from '../main'
 
 interface DialogConfig extends Partial<DialogProps> {
   customClass?: string
@@ -25,8 +26,6 @@ export function createDialog(
   props: Record<string, any> = {},
   dialogConfig: DialogConfig = {}
 ) {
-  const inst = getCurrentInstance()
-  const appContext = inst?.appContext
   const container = document.createElement('div')
   document.body.appendChild(container)
   const visible: Ref<boolean> = ref(true)
@@ -68,15 +67,19 @@ export function createDialog(
           },
         },
         {
-          default: () => h(component, { ...props, onClose: close }),
+          default: () => h(component, { 
+            ...props, 
+            onClose: close
+          }),
         }
       )
     }
   })
 
+  // 使用导入的 app 实例创建对话框
   const vnode = createVNode(DialogWrapper)
-
-  if (appContext) vnode.appContext = appContext
+  // 确保使用主应用的上下文，这样 Element Plus 组件就能被识别
+  vnode.appContext = app._context
   render(vnode, container)
 
   const dialogId = uuidv4()
