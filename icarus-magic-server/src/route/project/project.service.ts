@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from './project.entity';
 import { User } from '../user/user.entity';
+import { ProjectSound } from '../sound/project-sound.entity';
+import { Sound } from '../sound/sound.entity';
 import { CreateProjectDto, ListDto, SaveTextDto } from './project.dto';
 import dayjs from 'dayjs';
 
@@ -13,6 +15,10 @@ export class ProjectService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(ProjectSound)
+    private readonly projectSoundRepository: Repository<ProjectSound>,
+    @InjectRepository(Sound)
+    private readonly soundRepository: Repository<Sound>,
   ) {}
 
   // 创建项目
@@ -95,6 +101,36 @@ export class ProjectService {
       throw new NotFoundException('项目不存在');
     }
     
+    // 获取关联的声音数据
+    let sounds: any[] = [];
+    const projectSound = await this.projectSoundRepository.findOne({
+      where: { projectId: id },
+    });
+    
+    if (projectSound && projectSound.soundIds && projectSound.soundIds.length > 0) {
+      const soundEntities = await this.soundRepository.find({
+        where: projectSound.soundIds.map(id => ({ id })),
+        relations: ['voice'],
+      });
+      
+      const soundMap = new Map(soundEntities.map(s => [s.id, s]));
+      
+      // 按 sortOrders 顺序排列
+      sounds = projectSound.sortOrders.map((soundId) => {
+        const sound = soundMap.get(soundId);
+        if (sound) {
+          return {
+            id: sound.id,
+            text: sound.text,
+            url: sound.url,
+            voiceId: sound.voiceId,
+            voice: sound.voice,
+          };
+        }
+        return null;
+      }).filter(Boolean);
+    }
+    
     // 格式化返回数据
     return {
       id: project.id,
@@ -102,9 +138,12 @@ export class ProjectService {
       description: project.description,
       status: project.status,
       text: project.text,
+      sounds,
       createdAt: project.createdAt ? dayjs(project.createdAt).format('YYYY-MM-DD HH:mm:ss') : null,
     };
   }
+
+  // 合成音频
 
   // 保存文案
   async saveText(dto: SaveTextDto) {
@@ -118,16 +157,8 @@ export class ProjectService {
     
     // 更新文案
     project.text = text;
-    const savedProject = await this.projectRepository.save(project);
-    
-    // 返回完整的项目信息
-    return {
-      id: savedProject.id,
-      name: savedProject.name,
-      description: savedProject.description,
-      status: savedProject.status,
-      text: savedProject.text,
-      createdAt: savedProject.createdAt ? dayjs(savedProject.createdAt).format('YYYY-MM-DD HH:mm:ss') : null,
-    };
+    await this.projectRepository.save(project);
+
+    return 'success';
   }
 }

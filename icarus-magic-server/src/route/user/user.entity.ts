@@ -8,9 +8,9 @@ import {
   OneToOne,
 } from 'typeorm';
 import { Logs } from '../logs/logs.entity';
-import { Roles } from '../roles/roles.entity';
 import { Task } from '@/route/task/task.entity';
 import { Project } from '@/route/project/project.entity';
+import { Voice } from '../voice/voice.entity';
 
 @Entity()
 export class User {
@@ -31,6 +31,9 @@ export class User {
 
   @OneToMany(() => Project, (project) => project.user)
   projects!: Project[];
+
+  @OneToMany(() => Voice, (voice) => voice.user)
+  voices!: Voice[];
 
   // @ManyToMany(() => Roles, (roles) => roles.users)
   // @JoinTable()
