@@ -9,7 +9,7 @@ export class Project {
   @Column()
   name!: string;
 
-  @Column()
+  @Column({ type: 'text' })
   description!: string;
 
   @Column()
@@ -17,6 +17,10 @@ export class Project {
 
   @CreateDateColumn()
   createdAt!: Date;
+
+  // 文案
+  @Column({ type: 'text' })
+  text!: string;
 
   //   @Column()
   //   material!: string[];

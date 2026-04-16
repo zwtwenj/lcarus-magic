@@ -44,6 +44,12 @@ const handleOpenDialog = () => {
   })
 }
 
+// 打开项目空间
+const openProjectSpace = (projectId: string) => {
+  const url = `${window.location.origin}${window.location.pathname}#/projectSpace/overview?id=${projectId}`
+  window.open(url, '_blank')
+}
+
 // 组件挂载时获取项目列表
 onMounted(() => {
   fetchProjects()
@@ -74,7 +80,7 @@ onMounted(() => {
           </div>
         </div>
         <div class="project-card-footer">
-          <button class="btn-secondary">查看详情</button>
+          <button class="btn-secondary" @click="openProjectSpace(project.id.toString())">查看详情</button>
           <button class="btn-secondary">编辑</button>
         </div>
       </div>

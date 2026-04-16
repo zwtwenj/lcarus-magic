@@ -50,3 +50,31 @@ export const listProjects = async (params: ListProjectsParams): Promise<ListProj
   const response = await request.post<ListProjectsResponse>('/project/list', params) as unknown as ListProjectsResponse;
   return response;
 };
+
+// 查询项目信息响应接口
+export interface GetProjectInfoResponse {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  text: string;
+  createdAt: string;
+}
+
+// 查询项目信息
+export const getProjectInfo = async (id: number): Promise<GetProjectInfoResponse> => {
+  const response = await request.get<GetProjectInfoResponse>(`/project/info?id=${id}`) as unknown as GetProjectInfoResponse;
+  return response;
+};
+
+// 保存项目文案请求参数接口
+export interface SaveTextParams {
+  projectId: number;
+  text: string;
+}
+
+// 保存项目文案
+export const saveText = async (params: SaveTextParams): Promise<GetProjectInfoResponse> => {
+  const response = await request.post<GetProjectInfoResponse>('/project/saveText', params) as unknown as GetProjectInfoResponse;
+  return response;
+};

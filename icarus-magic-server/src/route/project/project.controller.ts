@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { CreateProjectDto, ListDto } from './project.dto';
+import { CreateProjectDto, ListDto, SaveTextDto } from './project.dto';
 
 @Controller('project')
 export class ProjectController {
@@ -24,5 +24,17 @@ export class ProjectController {
   @Post('/list')
   async listProjects(@Body() list: ListDto) {
     return this.projectService.listProjects(list);
+  }
+
+  // 查询项目信息
+  @Get('/info')
+  async getProjectInfo(@Query('id', ParseIntPipe) id: number) {
+    return this.projectService.getProjectInfo(id);
+  }
+
+  // 保存文案
+  @Post('/saveText')
+  async saveText(@Body() dto: SaveTextDto) {
+    return this.projectService.saveText(dto);
   }
 }

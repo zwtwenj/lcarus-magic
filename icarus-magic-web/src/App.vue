@@ -17,10 +17,14 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('获取用户信息失败:', error)
-    // 清空 token 并跳转到登录页面
-    localStorage.removeItem('token')
-    userStore.clearUserId()
-    router.push('/login')
+    // 检查当前路由是否在项目空间内
+    const currentPath = router.currentRoute.value.path
+    if (!currentPath.includes('/projectSpace')) {
+      // 只有当不在项目空间内时，才跳转到登录页面
+      localStorage.removeItem('token')
+      userStore.clearUserId()
+      router.push('/login')
+    }
   }
 })
 </script>

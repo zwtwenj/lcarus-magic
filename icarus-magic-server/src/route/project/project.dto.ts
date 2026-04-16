@@ -48,3 +48,31 @@ export class ListDto {
     @Transform(({ value }) => value || '') 
     userId: string = '';
 }
+
+/**
+ * 文案润色 DTO
+ * @param text 待润色的文本
+ */
+export class PolishTextDto {
+    @IsDefined()
+    @IsNotEmpty()
+    @IsString()
+    text: string;
+}
+
+/**
+ * 保存文案 DTO
+ * @param projectId 项目ID
+ * @param text 文案内容
+ */
+export class SaveTextDto {
+    @IsDefined()
+    @IsNotEmpty()
+    @IsInt()
+    projectId: number;
+
+    @IsDefined()
+    @IsNotEmpty()
+    @IsString()
+    text: string;
+}

@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from './project.entity';
 import { User } from '../user/user.entity';
-import { CreateProjectDto, ListDto } from './project.dto';
+import { CreateProjectDto, ListDto, SaveTextDto } from './project.dto';
 import dayjs from 'dayjs';
 
 @Injectable()
@@ -83,6 +83,51 @@ export class ProjectService {
       total,
       page,
       page_size,
+    };
+  }
+
+  // 查询项目信息
+  async getProjectInfo(id: number) {
+    // 根据ID查询项目
+    const project = await this.projectRepository.findOne({ where: { id } });
+    
+    if (!project) {
+      throw new NotFoundException('项目不存在');
+    }
+    
+    // 格式化返回数据
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      text: project.text,
+      createdAt: project.createdAt ? dayjs(project.createdAt).format('YYYY-MM-DD HH:mm:ss') : null,
+    };
+  }
+
+  // 保存文案
+  async saveText(dto: SaveTextDto) {
+    const { projectId, text } = dto;
+    
+    // 查找项目
+    const project = await this.projectRepository.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new NotFoundException('项目不存在');
+    }
+    
+    // 更新文案
+    project.text = text;
+    const savedProject = await this.projectRepository.save(project);
+    
+    // 返回完整的项目信息
+    return {
+      id: savedProject.id,
+      name: savedProject.name,
+      description: savedProject.description,
+      status: savedProject.status,
+      text: savedProject.text,
+      createdAt: savedProject.createdAt ? dayjs(savedProject.createdAt).format('YYYY-MM-DD HH:mm:ss') : null,
     };
   }
 }

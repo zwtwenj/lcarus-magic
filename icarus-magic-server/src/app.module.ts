@@ -7,11 +7,13 @@ import { Roles } from './route/roles/roles.entity';
 import { Logs } from './route/logs/logs.entity';
 import { Task } from './route/task/task.entity';
 import { Project } from './route/project/project.entity';
+import { Coze } from './route/coze/coze.entity';
 import { AuthModule } from './route/auth/auth.module'
 import { UserModule } from './route/user/user.module';
 import { LogsModule } from './route/logs/logs.module';
 import { TaskModule } from './route/task/task.module';
 import { ProjectModule } from './route/project/project.module';
+import { CozeModule } from './route/coze/coze.module';
 
 @Module({
   imports: [
@@ -26,7 +28,7 @@ import { ProjectModule } from './route/project/project.module';
         username: configService.get('MYSQL_USER'),
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
-        entities: [User, Roles, Logs, Task, Project],
+        entities: [User, Roles, Logs, Task, Project, Coze],
         synchronize: true,
         logging: ['error', 'warn'],
       }),
@@ -37,6 +39,7 @@ import { ProjectModule } from './route/project/project.module';
     LogsModule,
     TaskModule,
     ProjectModule,
+    CozeModule,
   ],
   controllers: [],
   providers: [],

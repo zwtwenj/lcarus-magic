@@ -43,11 +43,6 @@ export class UserController {
     return this.userService.remove(id);
   }
 
-  // @Get('/getProfile')
-  // getProfile(@Query('id', ParseIntPipe) id: number): Promise<Profile | null> {
-  //   return this.userService.findProfile(id);
-  // }
-
   @Get('/getLogs')
   getLogs(@Query('id', ParseIntPipe) id: number): Promise<Logs[]> {
     this.logger.log(`获取用户日志，用户ID: ${id}`)
