@@ -46,6 +46,9 @@ const saveText = async () => {
       type: 'warning',
     })
     
+    // 处理多个换行符，将连续的换行符替换为两个换行符
+    const processedText = editText.value.replace(/\n+/g, '\n\n')
+    
     // 调用保存接口
     const projectId = projectStore.projectId
     if (!projectId) {
@@ -55,7 +58,7 @@ const saveText = async () => {
     
     await saveTextAPI({
       projectId: Number(projectId),
-      text: editText.value
+      text: processedText
     })
     
     // 重新获取项目详情

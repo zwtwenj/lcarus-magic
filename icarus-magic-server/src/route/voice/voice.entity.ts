@@ -18,7 +18,7 @@ export class Voice {
   @JoinColumn()
   user: User;
 
-  // 语音ID百炼的默认音色Id
+  // 百炼的默认音色Id
   @Column()
   voiceId: string;
 

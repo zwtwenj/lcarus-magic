@@ -1,8 +1,8 @@
-import * as OSS from 'ali-oss';
+import OSS from 'ali-oss';
 import { ConfigService } from '@nestjs/config';
 
 class OSSClient {
-  private client: OSS;
+  private client: any;
 
   constructor(private configService: ConfigService) {
     this.client = new OSS({
@@ -13,7 +13,7 @@ class OSSClient {
     });
   }
 
-  private accessUrlForObject(ossFileName: string, putResult?: OSS.PutObjectResult): string {
+  private accessUrlForObject(ossFileName: string, putResult?: any): string {
     if (putResult && putResult.url) {
       return putResult.url;
     }

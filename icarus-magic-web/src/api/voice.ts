@@ -7,6 +7,7 @@ export interface VoiceItem {
   isDefault: boolean
   userId: number | null
   createdAt: string
+  voiceId: string
 }
 
 export const getVoiceList = async (): Promise<VoiceItem[]> => {

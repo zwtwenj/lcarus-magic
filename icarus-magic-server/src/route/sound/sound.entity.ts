@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
 import { Voice } from '../voice/voice.entity';
 import { Project } from '../project/project.entity';
 
@@ -13,6 +13,7 @@ export class Sound {
   @Column({ length: 512 })
   url: string;
 
+  // 音声id，voice表中的id，而不是voice表中的voiceId
   @Column()
   voiceId: number;
 
@@ -26,4 +27,12 @@ export class Sound {
   @ManyToOne(() => Project, (project) => project.id)
   @JoinColumn({ name: 'projectId' })
   project: Project;
+
+  // 创建时间
+  @CreateDateColumn()
+  createdAt: Date;
+
+  // 是否测试音
+  @Column()
+  isTest: boolean = true;
 }

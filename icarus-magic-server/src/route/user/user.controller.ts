@@ -49,15 +49,15 @@ export class UserController {
     return this.userService.findUserLogs(id);
   }
 
-  @Get('/logsByGroup')
-  async getLogsByGroup(@Query('id', ParseIntPipe) id: number): Promise<{ result: string; count: number }[]>{
-    const res = await this.userService.findUserLogsByGroup(id);
-    this.logger.log(`获取用户日志分组统计，用户ID: ${id}`);
-    const result = res.map((item) => ({
-      result: item.result,
-      count: item.count,
-    }));
-    this.logger.log(`用户ID: ${id} 的日志分组统计结果: ${JSON.stringify(result)}`);
-    return result;
-  }
+  // @Get('/logsByGroup')
+  // async getLogsByGroup(@Query('id', ParseIntPipe) id: number): Promise<{ result: string; count: number }[]>{
+  //   const res = await this.userService.findUserLogsByGroup(id);
+  //   this.logger.log(`获取用户日志分组统计，用户ID: ${id}`);
+  //   const result = res.map((item) => ({
+  //     result: item.result,
+  //     count: item.count,
+  //   }));
+  //   this.logger.log(`用户ID: ${id} 的日志分组统计结果: ${JSON.stringify(result)}`);
+  //   return result;
+  // }
 }

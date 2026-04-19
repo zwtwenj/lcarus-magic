@@ -15,7 +15,10 @@ onMounted(async () => {
   if (projectId) {
     try {
       await projectStore.fetchProjectDetail(Number(projectId))
-      projectStore.currentMenu = 'overview'
+      // 根据当前路由设置菜单
+      const currentPath = route.path
+      const menuKey = currentPath.split('/').pop() || 'overview'
+      projectStore.currentMenu = menuKey
     } catch (error) {
       console.error('获取项目信息失败:', error)
       ElMessage.error('获取项目信息失败')
