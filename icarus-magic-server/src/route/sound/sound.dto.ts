@@ -30,3 +30,21 @@ export class GenerateSoundResponse {
   url: string;
   id: number;
 }
+
+export class GenerateProjectSoundsDto {
+  @IsString()
+  voiceId: string;
+
+  @IsOptional()
+  parameters?: VoiceParameters;
+
+  @IsString({ each: true })
+  text: string[];
+
+  @IsNumber()
+  projectId: number;
+
+  @IsOptional()
+  @IsString()
+  voiceUrl?: string;
+}

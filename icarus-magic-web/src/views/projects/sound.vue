@@ -2,7 +2,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useProjectStore } from '@/store/project.store'
 import { getVoiceList, type VoiceItem } from '@/api/voice'
-import { generateSound } from '@/api/sound'
+import { generateSound, generateProjectSounds } from '@/api/sound'
+import { getTaskStatus } from '@/api/task'
 import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, ElTag } from 'element-plus'
 
 const projectStore = useProjectStore()
@@ -120,8 +121,40 @@ const generateVoice = async (index: number) => {
       projectId: Number(projectId.value)
     })
     
-    paragraphVoices.value[index].voiceUrl = response.url
-    ElMessage.success('语音生成成功')
+    const taskId = response.taskId
+    if (!taskId) {
+      throw new Error('任务ID不存在')
+    }
+    
+    // 轮询任务状态
+    let isCompleted = false
+    let pollCount = 0
+    const maxPollCount = 30
+    
+    while (!isCompleted && pollCount < maxPollCount) {
+      const res = await getTaskStatus(taskId)
+      console.log('Task status:', res.status)
+      
+      if (res.status === 'completed') {
+        isCompleted = true
+        if (res.res && res.res.url) {
+          paragraphVoices.value[index].voiceUrl = res.res.url
+          ElMessage.success('语音生成成功')
+        } else {
+          throw new Error('语音生成成功但未返回URL')
+        }
+      } else if (res.status === 'failed') {
+        throw new Error('语音生成失败')
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 2000))
+        pollCount++
+      }
+    }
+    
+    if (pollCount >= maxPollCount) {
+      throw new Error('语音生成超时')
+    }
+    
   } catch (error) {
     console.error('语音生成失败:', error)
     ElMessage.error('语音生成失败')
@@ -140,6 +173,41 @@ const playVoice = (voiceUrl: string) => {
     console.error('试听失败:', error)
     ElMessage.error('试听失败')
   })
+}
+
+const handleGenerateAndSave = async () => {
+  if (!selectedVoice.value) {
+    ElMessage.warning('请先选择音声')
+    return
+  }
+  if (!projectId.value) {
+    ElMessage.warning('项目ID不存在')
+    return
+  }
+  if (paragraphs.value.length === 0) {
+    ElMessage.warning('没有需要生成的文本')
+    return
+  }
+
+  try {
+    const response = await generateProjectSounds({
+      voiceId: selectedVoice.value,
+      parameters: {
+        volume: voiceConfig.value.volume,
+        rate: voiceConfig.value.rate,
+        pitch: voiceConfig.value.pitch,
+        emotion: voiceConfig.value.emotion
+      },
+      text: paragraphs.value,
+      projectId: Number(projectId.value)
+    })
+    
+    console.log('项目语音合成任务创建成功:', response)
+    ElMessage.success('项目语音合成任务已创建')
+  } catch (error) {
+    console.error('项目语音合成失败:', error)
+    ElMessage.error('项目语音合成失败')
+  }
 }
 </script>
 
@@ -247,7 +315,7 @@ const playVoice = (voiceUrl: string) => {
 
             <div v-else class="paragraph-list">
               <div
-                v-for="(paragraph, index) in paragraphs.concat(paragraphs)"
+                v-for="(paragraph, index) in paragraphs"
                 :key="index"
                 class="paragraph-item"
               >
@@ -296,7 +364,7 @@ const playVoice = (voiceUrl: string) => {
     </div>
 
     <div class="bottom-actions">
-      <el-button type="primary" size="large" style="width: 200px;">生成并保存</el-button>
+      <el-button type="primary" size="large" style="width: 200px;" @click="handleGenerateAndSave">生成并保存</el-button>
     </div>
   </div>
 </template>

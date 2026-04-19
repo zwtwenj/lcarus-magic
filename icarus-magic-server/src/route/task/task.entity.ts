@@ -4,6 +4,8 @@ import {
   Column,
   ManyToOne,
   JoinColumn,
+  OneToMany,
+  JoinTable,
 } from 'typeorm';
 import { User } from '@/route/user/user.entity';
 import { TaskStatus } from './task.dto';
@@ -20,15 +22,32 @@ export class Task {
   status!: TaskStatus;
   
   @Column()
-  // enum: 任务类型 project subtitle sound material
+  // enum: 任务类型 project subtitle projectSounds sound material
   type!: string;
 
   @Column()
   create_time!: Date;
 
-  @ManyToOne(() => User, (user) => user.tasks)
+  @ManyToOne(() => User, (user) => user.tasks, { nullable: true })
   @JoinColumn()
-  user!: User;
+  user?: User;
+
+  // 父任务ID
+  @ManyToOne(() => Task, (task) => task.children, { nullable: true })
+  @JoinColumn()
+  parent?: Task;
+
+  // 子任务
+  @OneToMany(() => Task, (task) => task.parent)
+  children!: Task[];
+
+  // 入参
+  @Column("text")
+  req?: string;
+
+  // 出参
+  @Column("text")
+  res?: string;
   
 //   @Column()
 //   gender!: number;

@@ -5,9 +5,10 @@ import { SoundController } from './sound.controller';
 import { Sound } from './sound.entity';
 import { ProjectSound } from './project-sound.entity';
 import { Voice } from '../voice/voice.entity';
+import { TaskModule } from '../task/task.module';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Sound, ProjectSound, Voice])],
+    imports: [TypeOrmModule.forFeature([Sound, ProjectSound, Voice]), TaskModule],
     controllers: [SoundController],
     providers: [SoundService],
 })

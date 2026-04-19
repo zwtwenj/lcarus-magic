@@ -3,9 +3,9 @@ import { Transform } from 'class-transformer';
 
 // 待处理 处理中 已完成
 export enum TaskStatus {
-    pending = 'pending',
     processing = 'processing',
     completed = 'completed',
+    failed = 'failed',
 }
 
 /**

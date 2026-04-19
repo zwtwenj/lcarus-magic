@@ -28,13 +28,13 @@ const intensityOptions = ['轻度', '中度', '重度']
 watch(() => projectData.value, (newData) => {
   if (newData.text) {
     editText.value = newData.text
+    // 文案不为空时，不进入编辑模式
+    isEditing.value = false
+  } else {
+    // 文案为空时，进入编辑模式
+    isEditing.value = true
   }
 }, { immediate: true })
-
-// 组件挂载时检查
-if (!projectData.value.text) {
-  isEditing.value = true
-}
 
 // 保存文本
 const saveText = async () => {

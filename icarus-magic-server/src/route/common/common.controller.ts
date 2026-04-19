@@ -1,7 +1,8 @@
-import { Controller, Post, UploadedFile, UseInterceptors, Body } from '@nestjs/common';
+import { Controller, Post, UploadedFile, UseInterceptors, Body, UseGuards, Req } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CommonService } from './common.service';
-import { Public } from '../../transform/public.decorator';
+import { JwtAuthGuard } from '../../transform/jwt-auth.guard';
+// import { Error}
 
 interface TestCosyvoiceDto {
   voiceId?: string;
@@ -34,28 +35,23 @@ export class CommonController {
     return { url };
   }
 
-  @Public()
   @Post('test/cosyvoice')
-  async testCosyvoice(@Body() dto: TestCosyvoiceDto) {
-    const result = await this.commonService.testCosyvoice(
-      dto.text,
-      dto.voiceId,
-      dto.url,
-      dto.parameters
-    );
+  @UseGuards(JwtAuthGuard)
+  async testCosyvoice(@Body() dto: TestCosyvoiceDto, @Req() req: any) {
+    const result = await this.commonService.testCosyvoice({
+      userId: req.user.userId,
+      text: dto.text,
+      voiceId: dto.voiceId,
+      url: dto.url,
+      parameters: dto.parameters,
+    });
     
     if (result.error) {
-      return {
-        success: false,
-        message: result.error,
-        data: result.data
-      };
+      return new Error(result.error);
     }
     
     return {
-      success: true,
-      message: 'Cosyvoice test successful',
-      data: result.data
+      taskId: result.taskId
     };
   }
 }
