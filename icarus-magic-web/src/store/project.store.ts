@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia'
 import { getProjectInfo } from '../api/project'
 
+interface Segment {
+  sort: number
+  text: string
+  sound: string | null
+}
+
 interface ProjectData {
   id?: number
   name?: string
@@ -8,6 +14,7 @@ interface ProjectData {
   description?: string
   status?: string
   createdAt?: string
+  segments?: Segment[]
 }
 
 interface MenuItem {

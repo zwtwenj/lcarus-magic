@@ -3,6 +3,13 @@ import { User } from '../user/user.entity';
 import { Sound } from '../sound/sound.entity';
 import { ProjectSound } from '../sound/project-sound.entity';
 
+// 段落接口
+export interface Segment {
+  sort: number;
+  text: string;
+  sound: string | null;
+}
+
 @Entity()
 export class Project {
   @PrimaryGeneratedColumn()
@@ -20,9 +27,9 @@ export class Project {
   @CreateDateColumn()
   createdAt!: Date;
 
-  // 文案
-  @Column({ type: 'text' })
-  text!: string;
+  // 段落
+  @Column({ type: 'json', nullable: true })
+  segments?: Segment[];
 
   //   @Column()
   //   material!: string[];

@@ -36,7 +36,7 @@ import { SoundModule } from './route/sound/sound.module';
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
         entities: [User, Roles, Logs, Task, Project, Coze, Config, Voice, Sound, ProjectSound],
-        synchronize: true,
+        synchronize: false,
         logging: ['error', 'warn'],
       }),
       inject: [ConfigService],

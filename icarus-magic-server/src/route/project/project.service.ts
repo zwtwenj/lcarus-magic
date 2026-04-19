@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Project } from './project.entity';
+import { Project, Segment } from './project.entity';
 import { User } from '../user/user.entity';
 import { ProjectSound } from '../sound/project-sound.entity';
 import { Sound } from '../sound/sound.entity';
@@ -39,6 +39,7 @@ export class ProjectService {
       name,
       description,
       status: 'pending',
+      segments: [],
       user,
     });
     
@@ -137,7 +138,7 @@ export class ProjectService {
       name: project.name,
       description: project.description,
       status: project.status,
-      text: project.text,
+      segments: project.segments || [],
       sounds,
       createdAt: project.createdAt ? dayjs(project.createdAt).format('YYYY-MM-DD HH:mm:ss') : null,
     };
@@ -155,8 +156,18 @@ export class ProjectService {
       throw new NotFoundException('项目不存在');
     }
     
-    // 更新文案
-    project.text = text;
+    // 将文本按换行符分割（单个或多个换行符都视为一个分隔符）
+    const segments = text
+      .split(/\n+/)
+      .filter(segment => segment.trim() !== '') // 过滤空段落
+      .map((segmentText, index) => ({
+        sort: index + 1,
+        text: segmentText.trim(),
+        sound: null
+      }));
+    
+    // 更新 segments 字段
+    project.segments = segments;
     await this.projectRepository.save(project);
 
     return 'success';

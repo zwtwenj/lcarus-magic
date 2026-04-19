@@ -1,27 +1,24 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useProjectStore } from '@/store/project.store'
 import { getVoiceList, type VoiceItem } from '@/api/voice'
-import { generateSound, generateProjectSounds } from '@/api/sound'
+import { generateSound, type GenerateSoundRequest } from '@/api/sound'
 import { getTaskStatus } from '@/api/task'
-import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, ElTag } from 'element-plus'
+import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, ElTag, ElButton } from 'element-plus'
 
 const projectStore = useProjectStore()
-const projectText = computed(() => projectStore.projectData.text || '')
-const projectId = computed(() => projectStore.projectId)
 
-const paragraphs = computed(() => {
-  if (!projectText.value) return []
-  return projectText.value.split('\n\n').filter(paragraph => paragraph.trim())
+const segments = computed(() => {
+  return projectStore.projectData.segments || []
 })
 
 const voiceList = ref<VoiceItem[]>([])
 const selectedVoice = ref<string | null>(null)
-// const selectedVoiceInfo = computed(() => {
-//   if (!selectedVoice.value) return null
-//   return voiceList.value.find(v => v.voiceId === selectedVoice.value)
-// })
 const loading = ref(false)
+const previewAudios = ref<Record<number, string>>({})
+const previewLoading = ref<Record<number, boolean>>({})
+const currentPlaying = ref<number | null>(null)
+const audioElement = ref<HTMLAudioElement | null>(null)
 
 const voiceConfig = ref({
   volume: 50,
@@ -38,31 +35,20 @@ const emotionOptions = [
   { label: 'surprise', value: 'surprise', tagType: 'warning' as const }
 ]
 
-interface ParagraphVoice {
-  text: string
-  voiceUrl: string | null
-  loading: boolean
+const getEmotionLabel = (emotion: string) => {
+  const labels: Record<string, string> = {
+    neutral: '一般',
+    happy: '开心',
+    sad: '悲伤',
+    angry: '生气',
+    surprise: '惊讶'
+  }
+  return labels[emotion] || emotion
 }
-
-const paragraphVoices = ref<ParagraphVoice[]>([])
 
 onMounted(async () => {
   await fetchVoiceList()
-  initializeParagraphVoices()
 })
-
-const initializeParagraphVoices = () => {
-  const currentParagraphs = paragraphs.value
-  paragraphVoices.value = currentParagraphs.map(text => ({
-    text,
-    voiceUrl: null,
-    loading: false
-  }))
-}
-
-watch(paragraphs, () => {
-  initializeParagraphVoices()
-}, { deep: true })
 
 const fetchVoiceList = async () => {
   loading.value = true
@@ -76,145 +62,93 @@ const fetchVoiceList = async () => {
   }
 }
 
-// const getEmotionTagType = (emotion: string) => {
-//   const option = emotionOptions.find(o => o.value === emotion)
-//   return option?.tagType || 'info'
-// }
-
-const getEmotionLabel = (emotion: string) => {
-  const labels: Record<string, string> = {
-    neutral: '一般',
-    happy: '开心',
-    sad: '悲伤',
-    angry: '生气',
-    surprise: '惊讶'
-  }
-  return labels[emotion] || emotion
-}
-
-const generateVoice = async (index: number) => {
+const generatePreviewVoice = async (segment: any) => {
   if (!selectedVoice.value) {
     ElMessage.warning('请先选择音声')
     return
   }
-  if (!projectId.value) {
-    ElMessage.warning('项目ID不存在')
-    return
-  }
-  if (index < 0 || index >= paragraphVoices.value.length) {
-    ElMessage.warning('段落索引无效')
-    return
-  }
 
-  paragraphVoices.value[index].loading = true
-  
+  previewLoading.value[segment.sort] = true
   try {
-    const response = await generateSound({
+    const request: GenerateSoundRequest = {
       voiceId: selectedVoice.value,
-      parameters: {
-        volume: voiceConfig.value.volume,
-        rate: voiceConfig.value.rate,
-        pitch: voiceConfig.value.pitch,
-        emotion: voiceConfig.value.emotion
-      },
-      text: paragraphVoices.value[index].text,
-      projectId: Number(projectId.value)
-    })
-    
-    const taskId = response.taskId
-    if (!taskId) {
-      throw new Error('任务ID不存在')
+      text: segment.text,
+      projectId: projectStore.projectData.id!,
+      parameters: voiceConfig.value
     }
-    
-    // 轮询任务状态
-    let isCompleted = false
-    let pollCount = 0
-    const maxPollCount = 30
-    
-    while (!isCompleted && pollCount < maxPollCount) {
-      const res = await getTaskStatus(taskId)
-      console.log('Task status:', res.status)
-      
-      if (res.status === 'completed') {
-        isCompleted = true
-        if (res.res && res.res.url) {
-          paragraphVoices.value[index].voiceUrl = res.res.url
-          ElMessage.success('语音生成成功')
+
+    const response = await generateSound(request)
+    const taskId = response.taskId
+
+    // 轮询查询任务状态
+    const pollTask = async () => {
+      try {
+        const statusResponse = await getTaskStatus(taskId)
+        
+        if (statusResponse.status === 'completed') {
+          previewAudios.value[segment.sort] = statusResponse.res.url
+          ElMessage.success('试听语音生成成功')
+        } else if (statusResponse.status === 'failed') {
+          ElMessage.error('试听语音生成失败')
         } else {
-          throw new Error('语音生成成功但未返回URL')
+          // 继续轮询
+          setTimeout(pollTask, 1000)
         }
-      } else if (res.status === 'failed') {
-        throw new Error('语音生成失败')
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        pollCount++
+      } catch (error) {
+        console.error('查询任务状态失败:', error)
+        ElMessage.error('查询任务状态失败')
+      } finally {
+        previewLoading.value[segment.sort] = false
       }
     }
-    
-    if (pollCount >= maxPollCount) {
-      throw new Error('语音生成超时')
-    }
-    
+
+    pollTask()
   } catch (error) {
-    console.error('语音生成失败:', error)
-    ElMessage.error('语音生成失败')
-  } finally {
-    if (index >= 0 && index < paragraphVoices.value.length) {
-      paragraphVoices.value[index].loading = false
-    }
+    console.error('生成试听语音失败:', error)
+    ElMessage.error('生成试听语音失败')
+    previewLoading.value[segment.sort] = false
   }
 }
 
-const playVoice = (voiceUrl: string) => {
-  if (!voiceUrl) return
+const playPreviewVoice = (sort: number) => {
+  const audioUrl = previewAudios.value[sort]
+  if (!audioUrl) {
+    ElMessage.warning('请先生成试听语音')
+    return
+  }
+
+  // 停止当前播放
+  if (audioElement.value) {
+    audioElement.value.pause()
+    audioElement.value.currentTime = 0
+  }
+
+  // 如果点击的是当前播放的，则停止
+  if (currentPlaying.value === sort) {
+    currentPlaying.value = null
+    return
+  }
+
+  // 播放新的音频
+  audioElement.value = new Audio(audioUrl)
+  currentPlaying.value = sort
   
-  const audio = new Audio(voiceUrl)
-  audio.play().catch(error => {
-    console.error('试听失败:', error)
-    ElMessage.error('试听失败')
-  })
-}
-
-const handleGenerateAndSave = async () => {
-  if (!selectedVoice.value) {
-    ElMessage.warning('请先选择音声')
-    return
-  }
-  if (!projectId.value) {
-    ElMessage.warning('项目ID不存在')
-    return
-  }
-  if (paragraphs.value.length === 0) {
-    ElMessage.warning('没有需要生成的文本')
-    return
+  audioElement.value.onended = () => {
+    currentPlaying.value = null
   }
 
-  try {
-    const response = await generateProjectSounds({
-      voiceId: selectedVoice.value,
-      parameters: {
-        volume: voiceConfig.value.volume,
-        rate: voiceConfig.value.rate,
-        pitch: voiceConfig.value.pitch,
-        emotion: voiceConfig.value.emotion
-      },
-      text: paragraphs.value,
-      projectId: Number(projectId.value)
-    })
-    
-    console.log('项目语音合成任务创建成功:', response)
-    ElMessage.success('项目语音合成任务已创建')
-  } catch (error) {
-    console.error('项目语音合成失败:', error)
-    ElMessage.error('项目语音合成失败')
+  audioElement.value.onerror = () => {
+    ElMessage.error('播放音频失败')
+    currentPlaying.value = null
   }
+
+  audioElement.value.play()
 }
 </script>
 
 <template>
   <div class="project-sound">
     <h2>声音设置</h2>
-    
 
     <div class="content-container">
       <div class="left-column">
@@ -303,11 +237,11 @@ const handleGenerateAndSave = async () => {
             <template #header>
               <div class="card-header">
                 <h3>文案段落</h3>
-                <span class="paragraph-count">{{ paragraphs.length }} 段</span>
+                <span class="paragraph-count">{{ segments.length }} 段</span>
               </div>
             </template>
 
-            <div v-if="paragraphs.length === 0" class="empty-text">
+            <div v-if="segments.length === 0" class="empty-text">
               <div class="empty-icon">📝</div>
               <p>暂无文案内容</p>
               <p class="empty-hint">请先在文案页面添加内容</p>
@@ -315,56 +249,44 @@ const handleGenerateAndSave = async () => {
 
             <div v-else class="paragraph-list">
               <div
-                v-for="(paragraph, index) in paragraphs"
-                :key="index"
+                v-for="segment in segments"
+                :key="segment.sort"
                 class="paragraph-item"
               >
                 <div class="paragraph-header">
-                  <div class="paragraph-number">{{ index + 1 }}</div>
+                  <div class="paragraph-number">{{ segment.sort }}</div>
                   <div class="paragraph-info">
-                    <span class="char-count">{{ paragraph.length }} 字</span>
-                    <span v-if="paragraphVoices[index]?.voiceUrl" class="has-voice-tag">
+                    <span class="char-count">{{ segment.text.length }} 字</span>
+                    <span v-if="segment.sound" class="has-voice-tag">
                       已生成语音
                     </span>
                   </div>
                   <div class="paragraph-actions">
-                    <button 
-                      v-if="!paragraphVoices[index]?.voiceUrl" 
-                      class="action-btn generate-btn" 
-                      title="生成"
-                      @click="generateVoice(index)"
-                      :disabled="!selectedVoice || paragraphVoices[index]?.loading"
+                    <el-button
+                      v-if="previewAudios[segment.sort]"
+                      type="primary"
+                      size="small"
+                      :loading="previewLoading[segment.sort]"
+                      @click="playPreviewVoice(segment.sort)"
                     >
-                      <span v-if="paragraphVoices[index]?.loading" class="loading-spinner"></span>
-                      <span v-else class="action-icon">🎤</span>
-                    </button>
-                    
-                    <template v-else>
-                      <button class="action-btn play-btn" title="试听" @click="playVoice(paragraphVoices[index]?.voiceUrl || '')">
-                        <span class="action-icon">🔊</span>
-                      </button>
-                      <button 
-                        class="action-btn regenerate-btn" 
-                        title="重新生成"
-                        @click="generateVoice(index)"
-                        :disabled="!selectedVoice || paragraphVoices[index]?.loading"
-                      >
-                        <span v-if="paragraphVoices[index]?.loading" class="loading-spinner"></span>
-                        <span v-else class="action-icon">🔄</span>
-                      </button>
-                    </template>
+                      {{ currentPlaying === segment.sort ? '停止' : '试听' }}
+                    </el-button>
+                    <el-button
+                      type="default"
+                      size="small"
+                      :loading="previewLoading[segment.sort]"
+                      @click="generatePreviewVoice(segment)"
+                    >
+                      {{ previewAudios[segment.sort] ? '重新生成' : '生成试听' }}
+                    </el-button>
                   </div>
                 </div>
-                <div class="paragraph-content">{{ paragraph }}</div>
+                <div class="paragraph-content">{{ segment.text }}</div>
               </div>
             </div>
           </el-card>
         </div>
       </div>
-    </div>
-
-    <div class="bottom-actions">
-      <el-button type="primary" size="large" style="width: 200px;" @click="handleGenerateAndSave">生成并保存</el-button>
     </div>
   </div>
 </template>
@@ -397,7 +319,6 @@ const handleGenerateAndSave = async () => {
   }
 
   .left-column {
-    // min-height: 500px;
     height: 700px;
 
     .left-scroll {
@@ -429,7 +350,6 @@ const handleGenerateAndSave = async () => {
   }
 
   .right-column {
-    // height: 70vh;
     height: 700px;
 
     .right-scroll {
@@ -457,17 +377,6 @@ const handleGenerateAndSave = async () => {
     }
   }
 
-  .bottom-actions {
-    margin-top: 16px;
-    text-align: center;
-    padding: 16px 0 0 0;
-    border-top: 1px solid #e4e7ed;
-    background-color: #ffffff;
-    // position: sticky;
-    bottom: 0;
-    z-index: 10;
-  }
-
   .card-header {
     display: flex;
     justify-content: space-between;
@@ -492,35 +401,6 @@ const handleGenerateAndSave = async () => {
 
     &:hover {
       box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.12);
-      // transform: translateY(-2px);
-    }
-  }
-
-  .selected-voice-info {
-    margin-top: 16px;
-    padding: 16px;
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    border-radius: 8px;
-    border-left: 4px solid #409eff;
-
-    .voice-detail {
-      .detail-item {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-
-        .label {
-          color: #606266;
-          font-size: 14px;
-          min-width: 60px;
-          font-weight: 500;
-        }
-
-        .value {
-          color: #303133;
-          font-weight: 600;
-        }
-      }
     }
   }
 
@@ -639,33 +519,6 @@ const handleGenerateAndSave = async () => {
     }
   }
 
-  .el-form-item {
-    margin-bottom: 16px;
-
-    &:last-child {
-      margin-bottom: 0;
-    }
-
-    .el-form-item__label {
-      font-weight: 500;
-      color: #303133;
-      margin-bottom: 8px;
-    }
-  }
-
-  .el-select {
-    width: 100%;
-
-    :deep(.el-select__input) {
-      font-size: 14px;
-    }
-
-    :deep(.el-select-dropdown) {
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-  }
-
   .text-card {
     .empty-text {
       text-align: center;
@@ -708,6 +561,8 @@ const handleGenerateAndSave = async () => {
           display: flex;
           align-items: center;
           margin-bottom: 12px;
+          flex-wrap: wrap;
+          gap: 8px;
 
           .paragraph-number {
             width: 28px;
@@ -748,58 +603,6 @@ const handleGenerateAndSave = async () => {
             display: flex;
             gap: 8px;
             flex-shrink: 0;
-
-            .action-btn {
-              background: none;
-              border: none;
-              cursor: pointer;
-              padding: 8px;
-              border-radius: 6px;
-              transition: all 0.3s ease;
-              position: relative;
-
-              &:hover:not(:disabled) {
-                background-color: rgba(64, 158, 255, 0.1);
-                transform: translateY(-1px);
-              }
-
-              &:disabled {
-                opacity: 0.5;
-                cursor: not-allowed;
-              }
-
-              .action-icon {
-                font-size: 16px;
-              }
-
-              .loading-spinner {
-                display: inline-block;
-                width: 16px;
-                height: 16px;
-                border: 2px solid rgba(64, 158, 255, 0.3);
-                border-top-color: #409eff;
-                border-radius: 50%;
-                animation: spin 0.8s linear infinite;
-              }
-
-              &.generate-btn {
-                &:hover:not(:disabled) {
-                  background-color: rgba(103, 194, 58, 0.1);
-                }
-              }
-
-              &.play-btn {
-                &:hover:not(:disabled) {
-                  background-color: rgba(64, 158, 255, 0.1);
-                }
-              }
-
-              &.regenerate-btn {
-                &:hover:not(:disabled) {
-                  background-color: rgba(230, 162, 60, 0.1);
-                }
-              }
-            }
           }
         }
 
@@ -811,12 +614,6 @@ const handleGenerateAndSave = async () => {
         }
       }
     }
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
   }
 }
 </style>

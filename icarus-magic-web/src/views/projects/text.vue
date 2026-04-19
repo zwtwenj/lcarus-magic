@@ -26,9 +26,12 @@ const intensityOptions = ['轻度', '中度', '重度']
 
 // 监听项目数据变化
 watch(() => projectData.value, (newData) => {
-  if (newData.text) {
+  // 如果有 segments，从 segments 还原文本
+  if (newData.segments && newData.segments.length > 0) {
+    editText.value = newData.segments.map(s => s.text).join('\n\n')
+    isEditing.value = false
+  } else if (newData.text) {
     editText.value = newData.text
-    // 文案不为空时，不进入编辑模式
     isEditing.value = false
   } else {
     // 文案为空时，进入编辑模式
@@ -77,7 +80,12 @@ const saveText = async () => {
 
 // 取消编辑
 const cancelEdit = () => {
-  editText.value = projectData.value.text || ''
+  // 从 segments 还原文本
+  if (projectData.value.segments && projectData.value.segments.length > 0) {
+    editText.value = projectData.value.segments.map(s => s.text).join('\n\n')
+  } else {
+    editText.value = projectData.value.text || ''
+  }
   isEditing.value = false
 }
 
@@ -118,16 +126,30 @@ const polishText = async () => {
   <div class="project-text">
     <div class="page-header">
       <h2>项目文案</h2>
-      <button v-if="!isEditing && projectData.text" class="btn-primary" @click="isEditing = true">
+      <button v-if="!isEditing && (projectData.segments?.length || projectData.text)" class="btn-primary" @click="isEditing = true">
         编辑文案
       </button>
     </div>
     
     <div class="text-content">
       <!-- 显示模式 -->
-      <div v-if="!isEditing && projectData.text" class="text-display">
+      <div v-if="!isEditing && (projectData.segments?.length || projectData.text)" class="text-display">
         <div class="text-body">
-          {{ projectData.text }}
+          <!-- 优先展示 segments -->
+          <div v-if="projectData.segments && projectData.segments.length > 0" class="segments-container">
+            <div 
+              v-for="segment in projectData.segments" 
+              :key="segment.sort" 
+              class="segment-item"
+            >
+              <div class="segment-number">段落 {{ segment.sort }}</div>
+              <div class="segment-text">{{ segment.text }}</div>
+            </div>
+          </div>
+          <!-- 向后兼容：展示 text -->
+          <div v-else class="text-only">
+            {{ projectData.text }}
+          </div>
         </div>
       </div>
       
@@ -256,7 +278,37 @@ const polishText = async () => {
       font-size: 14px;
       line-height: 1.5;
       color: #606266;
-      white-space: pre-wrap;
+      
+      .segments-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        
+        .segment-item {
+          padding: 16px;
+          background-color: #f9fafc;
+          border-radius: 8px;
+          border-left: 4px solid #409eff;
+          
+          .segment-number {
+            font-size: 12px;
+            font-weight: 600;
+            color: #909399;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+          }
+          
+          .segment-text {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #303133;
+          }
+        }
+      }
+      
+      .text-only {
+        white-space: pre-wrap;
+      }
     }
   }
   
