@@ -1,0 +1,60 @@
+import { request } from './index'
+
+export interface Material {
+  id: number
+  type: 'image' | 'video' | 'voice'
+  name: string
+  url: string
+  projectId: number
+  userId: number
+  createdAt: Date
+}
+
+export interface AddMaterialParams {
+  projectId: string
+  file: File
+}
+
+export interface GetMaterialsParams {
+  projectId: string
+  type?: 'image' | 'video' | 'voice'
+  keyword?: string
+}
+
+export interface DeleteMaterialParams {
+  projectId: string
+  materialId: string
+}
+
+export interface RenameMaterialParams {
+  projectId: string
+  materialId: string
+  newName: string
+}
+
+export const addMaterial = async (params: AddMaterialParams): Promise<Material> => {
+  const formData = new FormData()
+  formData.append('projectId', params.projectId)
+  formData.append('file', params.file)
+
+  const response = await request.post<Material>('/material/add', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+  return response as unknown as Material
+}
+
+export const getMaterials = async (params: GetMaterialsParams): Promise<Material[]> => {
+  const response = await request.post<Material[]>('/material/list', params)
+  return response as unknown as Material[]
+}
+
+export const deleteMaterial = async (params: DeleteMaterialParams): Promise<void> => {
+  await request.post('/material/delete', params)
+}
+
+export const renameMaterial = async (params: RenameMaterialParams): Promise<Material> => {
+  const response = await request.post<Material>('/material/rename', params)
+  return response as unknown as Material
+}

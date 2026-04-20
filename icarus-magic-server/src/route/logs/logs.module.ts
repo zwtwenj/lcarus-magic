@@ -7,7 +7,7 @@ import { Console } from 'winston/lib/winston/transports';
 import DailyRotateFile from 'winston-daily-rotate-file';
 
 const consoleTransports = new Console({
-    level: 'info',
+    level: 'warn',
     format: winston.format.combine(
         winston.format.colorize(),
         utilities.format.nestLike()
@@ -62,7 +62,7 @@ const dailyInfoTransports = new DailyRotateFile({
             inject: [ConfigService],
             useFactory: (configService: ConfigService) => ({
                 transports: [
-                    // consoleTransports,
+                    consoleTransports,
                     configService.get('LOG_ON') ? dailyWarnTransports : null,
                     configService.get('LOG_ON') ? dailyErrorTransports : null,
                     configService.get('LOG_ON') ? dailyInfoTransports : null,

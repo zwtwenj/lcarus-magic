@@ -65,7 +65,7 @@ onMounted(async () => {
       overflow-y: auto;
       
       .content-container {
-        background-color: #ffffff;
+        background: #f5f7fa;
         border-radius: 4px;
         padding: 20px;
         box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);

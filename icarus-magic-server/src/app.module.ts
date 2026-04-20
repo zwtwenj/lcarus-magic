@@ -11,6 +11,7 @@ import { Coze } from './route/coze/coze.entity';
 import { Config } from './route/common/config.entity';
 import { Voice } from './route/voice/voice.entity';
 import { Sound } from './route/sound/sound.entity';
+import { Material } from './route/material/material.entity';
 import { AuthModule } from './route/auth/auth.module'
 import { UserModule } from './route/user/user.module';
 import { LogsModule } from './route/logs/logs.module';
@@ -20,6 +21,7 @@ import { CozeModule } from './route/coze/coze.module';
 import { VoiceModule } from './route/voice/voice.module';
 import { CommonModule } from './route/common/common.module';
 import { SoundModule } from './route/sound/sound.module';
+import { MaterialModule } from './route/material/material.module';
 
 @Module({
   imports: [
@@ -34,7 +36,7 @@ import { SoundModule } from './route/sound/sound.module';
         username: configService.get('MYSQL_USER'),
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
-        entities: [User, Roles, Logs, Task, Project, Coze, Config, Voice, Sound],
+        entities: [User, Roles, Logs, Task, Project, Coze, Config, Voice, Sound, Material],
         synchronize: false,
         logging: ['error', 'warn'],
       }),
@@ -49,6 +51,7 @@ import { SoundModule } from './route/sound/sound.module';
     VoiceModule,
     CommonModule,
     SoundModule,
+    MaterialModule,
   ],
   controllers: [],
   providers: [],
