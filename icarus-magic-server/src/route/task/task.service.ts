@@ -111,6 +111,12 @@ export class TaskService {
     });
   }
 
+  async getTaskById(id: number) {
+    return await this.taskRepository.findOne({
+      where: { id }
+    });
+  }
+
   async getTaskStatus(id: number, userId: number) {
     const task = await this.taskRepository.createQueryBuilder('task')
       .where('task.id = :id', { id })

@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, JoinColumn } from 'typeorm';
 import { User } from '../user/user.entity';
-import { Sound } from '../sound/sound.entity';
-import { ProjectSound } from '../sound/project-sound.entity';
+import type { VoiceParameters } from '../sound/sound.dto';
 
 // 段落接口
 export interface Segment {
@@ -31,6 +30,14 @@ export class Project {
   @Column({ type: 'json', nullable: true })
   segments?: Segment[];
 
+  // 音声ID
+  @Column({ nullable: true })
+  voiceId?: string;
+
+  // 音声配置
+  @Column({ type: 'json', nullable: true })
+  parameters?: VoiceParameters;
+
   //   @Column()
   //   material!: string[];
 
@@ -38,9 +45,4 @@ export class Project {
   @JoinColumn()
   user!: User;
 
-  @OneToMany(() => Sound, (sound) => sound.project)
-  sounds!: Sound[];
-
-  @OneToMany(() => ProjectSound, (projectSound) => projectSound.project)
-  projectSound!: ProjectSound[];
 }

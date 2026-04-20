@@ -7,6 +7,14 @@ interface Segment {
   sound: string | null
 }
 
+interface VoiceParameters {
+  volume?: number
+  rate?: number
+  pitch?: number
+  role?: string
+  emotion?: string
+}
+
 interface ProjectData {
   id?: number
   name?: string
@@ -15,6 +23,8 @@ interface ProjectData {
   status?: string
   createdAt?: string
   segments?: Segment[]
+  voiceId?: string
+  parameters?: VoiceParameters
 }
 
 interface MenuItem {

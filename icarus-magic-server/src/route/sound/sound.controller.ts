@@ -34,7 +34,7 @@ export class SoundController {
       const result = await this.soundService.generateProjectSounds({
         voiceId: dto.voiceId,
         parameters: dto.parameters,
-        text: dto.text,
+        segments: dto.segments,
         projectId: dto.projectId,
         voiceUrl: dto.voiceUrl,
         userId: req.user.userId

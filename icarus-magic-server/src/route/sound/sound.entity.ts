@@ -24,7 +24,7 @@ export class Sound {
   @Column()
   projectId: number;
 
-  @ManyToOne(() => Project, (project) => project.id)
+  @ManyToOne(() => Project)
   @JoinColumn({ name: 'projectId' })
   project: Project;
 

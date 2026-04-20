@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useProjectStore } from '@/store/project.store'
 import { getVoiceList, type VoiceItem } from '@/api/voice'
-import { generateSound, type GenerateSoundRequest } from '@/api/sound'
+import { generateSound, generateProjectSounds, type GenerateSoundRequest, type Segment } from '@/api/sound'
 import { getTaskStatus } from '@/api/task'
 import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, ElTag, ElButton } from 'element-plus'
 
@@ -19,6 +19,7 @@ const previewAudios = ref<Record<number, string>>({})
 const previewLoading = ref<Record<number, boolean>>({})
 const currentPlaying = ref<number | null>(null)
 const audioElement = ref<HTMLAudioElement | null>(null)
+const generatingAll = ref(false)
 
 const voiceConfig = ref({
   volume: 50,
@@ -45,6 +46,34 @@ const getEmotionLabel = (emotion: string) => {
   }
   return labels[emotion] || emotion
 }
+
+// 监听项目数据变化
+watch(
+  () => projectStore.projectData,
+  (newData) => {
+    // 如果项目有保存的 voiceId 和 parameters，则恢复
+    if (newData.voiceId) {
+      selectedVoice.value = newData.voiceId
+    }
+    if (newData.parameters) {
+      const params = newData.parameters
+      voiceConfig.value = {
+        volume: params.volume ?? 50,
+        rate: params.rate ?? 1,
+        pitch: params.pitch ?? 1,
+        emotion: (params.emotion as 'neutral' | 'happy' | 'sad' | 'angry' | 'surprise') ?? 'neutral'
+      }
+    }
+    // 用 segments 的数据初始化试听数组
+    const segments = newData.segments || []
+    segments.forEach((segment: Segment) => {
+      if (segment.sound) {
+        previewAudios.value[segment.sort] = segment.sound
+      }
+    })
+  },
+  { deep: true, immediate: true }
+)
 
 onMounted(async () => {
   await fetchVoiceList()
@@ -111,7 +140,10 @@ const generatePreviewVoice = async (segment: any) => {
 }
 
 const playPreviewVoice = (sort: number) => {
-  const audioUrl = previewAudios.value[sort]
+  // 查找对应的 segment
+  const segment = segments.value.find(s => s.sort === sort)
+  // 优先使用 segment.sound，其次使用 previewAudios
+  const audioUrl = segment?.sound || previewAudios.value[sort]
   if (!audioUrl) {
     ElMessage.warning('请先生成试听语音')
     return
@@ -143,6 +175,70 @@ const playPreviewVoice = (sort: number) => {
   }
 
   audioElement.value.play()
+}
+
+const generateAndSaveAll = async () => {
+  if (!selectedVoice.value) {
+    ElMessage.warning('请先选择音声')
+    return
+  }
+
+  if (segments.value.length === 0) {
+    ElMessage.warning('暂无文案段落')
+    return
+  }
+
+  generatingAll.value = true
+  try {
+    const request = {
+      voiceId: selectedVoice.value,
+      segments: segments.value,
+      projectId: projectStore.projectData.id!,
+      parameters: voiceConfig.value
+    }
+
+    const response = await generateProjectSounds(request)
+    const taskId = response.taskId
+
+    ElMessage.success('开始生成语音，请稍候...')
+
+    // 轮询查询任务状态
+    const pollTask = async () => {
+      try {
+        const statusResponse = await getTaskStatus(taskId)
+
+        if (statusResponse.status === 'completed') {
+          ElMessage.success('语音生成并保存成功')
+          // 刷新项目数据
+          await projectStore.fetchProjectDetail(projectStore.projectData.id!)
+          // 将生成的音频URL赋值给试听数组
+          if (statusResponse.res && Array.isArray(statusResponse.res)) {
+            statusResponse.res.forEach((segment: Segment) => {
+              if (segment.sound) {
+                previewAudios.value[segment.sort] = segment.sound
+              }
+            })
+          }
+        } else if (statusResponse.status === 'failed') {
+          ElMessage.error('语音生成失败')
+        } else {
+          // 继续轮询
+          setTimeout(pollTask, 3000)
+        }
+      } catch (error) {
+        console.error('查询任务状态失败:', error)
+        ElMessage.error('查询任务状态失败')
+      } finally {
+        generatingAll.value = false
+      }
+    }
+
+    pollTask()
+  } catch (error) {
+    console.error('生成语音失败:', error)
+    ElMessage.error('生成语音失败')
+    generatingAll.value = false
+  }
 }
 </script>
 
@@ -263,7 +359,7 @@ const playPreviewVoice = (sort: number) => {
                   </div>
                   <div class="paragraph-actions">
                     <el-button
-                      v-if="previewAudios[segment.sort]"
+                      v-if="segment.sound || previewAudios[segment.sort]"
                       type="primary"
                       size="small"
                       :loading="previewLoading[segment.sort]"
@@ -277,12 +373,24 @@ const playPreviewVoice = (sort: number) => {
                       :loading="previewLoading[segment.sort]"
                       @click="generatePreviewVoice(segment)"
                     >
-                      {{ previewAudios[segment.sort] ? '重新生成' : '生成试听' }}
+                      {{ segment.sound || previewAudios[segment.sort] ? '重新生成' : '生成试听' }}
                     </el-button>
                   </div>
                 </div>
                 <div class="paragraph-content">{{ segment.text }}</div>
               </div>
+            </div>
+
+            <div class="generate-all-section">
+              <el-button
+                type="primary"
+                size="large"
+                :loading="generatingAll"
+                :disabled="!selectedVoice || segments.length === 0"
+                @click="generateAndSaveAll"
+              >
+                生成并保存
+              </el-button>
             </div>
           </el-card>
         </div>
@@ -611,6 +719,39 @@ const playPreviewVoice = (sort: number) => {
           color: #303133;
           white-space: pre-wrap;
           font-size: 14px;
+        }
+      }
+    }
+
+    .generate-all-section {
+      margin-top: 20px;
+      padding: 20px;
+      border-top: 1px solid #e4e7ed;
+      text-align: center;
+
+      .el-button {
+        min-width: 200px;
+        height: 44px;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        transition: all 0.3s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        &:active {
+          transform: translateY(0);
+        }
+
+        &:disabled {
+          background: #c0c4cc;
+          box-shadow: none;
+          transform: none;
         }
       }
     }

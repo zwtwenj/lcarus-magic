@@ -31,6 +31,12 @@ export class GenerateSoundResponse {
   id: number;
 }
 
+export interface Segment {
+  sort: number;
+  text: string;
+  sound: string | null;
+}
+
 export class GenerateProjectSoundsDto {
   @IsString()
   voiceId: string;
@@ -38,8 +44,7 @@ export class GenerateProjectSoundsDto {
   @IsOptional()
   parameters?: VoiceParameters;
 
-  @IsString({ each: true })
-  text: string[];
+  segments: Segment[];
 
   @IsNumber()
   projectId: number;

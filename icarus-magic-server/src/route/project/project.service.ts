@@ -3,8 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project, Segment } from './project.entity';
 import { User } from '../user/user.entity';
-import { ProjectSound } from '../sound/project-sound.entity';
-import { Sound } from '../sound/sound.entity';
 import { CreateProjectDto, ListDto, SaveTextDto } from './project.dto';
 import dayjs from 'dayjs';
 
@@ -15,10 +13,6 @@ export class ProjectService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(ProjectSound)
-    private readonly projectSoundRepository: Repository<ProjectSound>,
-    @InjectRepository(Sound)
-    private readonly soundRepository: Repository<Sound>,
   ) {}
 
   // 创建项目
@@ -102,34 +96,19 @@ export class ProjectService {
       throw new NotFoundException('项目不存在');
     }
     
-    // 获取关联的声音数据
+    // 从 segments 中提取声音数据
     let sounds: any[] = [];
-    const projectSound = await this.projectSoundRepository.findOne({
-      where: { projectId: id },
-    });
-    
-    if (projectSound && projectSound.soundIds && projectSound.soundIds.length > 0) {
-      const soundEntities = await this.soundRepository.find({
-        where: projectSound.soundIds.map(id => ({ id })),
-        relations: ['voice'],
-      });
+    if (project.segments && project.segments.length > 0) {
+      // 过滤出有声音的段落
+      const segmentsWithSound = project.segments.filter(segment => segment.sound);
       
-      const soundMap = new Map(soundEntities.map(s => [s.id, s]));
-      
-      // 按 sortOrders 顺序排列
-      sounds = projectSound.sortOrders.map((soundId) => {
-        const sound = soundMap.get(soundId);
-        if (sound) {
-          return {
-            id: sound.id,
-            text: sound.text,
-            url: sound.url,
-            voiceId: sound.voiceId,
-            voice: sound.voice,
-          };
-        }
-        return null;
-      }).filter(Boolean);
+      sounds = segmentsWithSound.map((segment, index) => ({
+        id: index + 1, // 临时ID，实际应该从 sound 表获取
+        text: segment.text,
+        url: segment.sound,
+        voiceId: project.voiceId,
+        voice: null // 暂时为null，实际应该从 voice 表获取
+      }));
     }
     
     // 格式化返回数据
@@ -139,6 +118,8 @@ export class ProjectService {
       description: project.description,
       status: project.status,
       segments: project.segments || [],
+      voiceId: project.voiceId || null,
+      parameters: project.parameters || null,
       sounds,
       createdAt: project.createdAt ? dayjs(project.createdAt).format('YYYY-MM-DD HH:mm:ss') : null,
     };

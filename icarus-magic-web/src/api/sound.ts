@@ -16,10 +16,16 @@ export interface GenerateSoundRequest {
   voiceUrl?: string;
 }
 
+export interface Segment {
+  sort: number;
+  text: string;
+  sound: string | null;
+}
+
 export interface GenerateProjectSoundsRequest {
   voiceId: string;
   parameters?: VoiceParameters;
-  text: string[];
+  segments: Segment[];
   projectId: number;
   voiceUrl?: string;
 }
