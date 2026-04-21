@@ -106,7 +106,7 @@ const handleUpload = async (file: File) => {
 }
 
 const openMaterialDialog = (material: Material) => {
-  openMaterialInfoDialog({ material })
+  openMaterialInfoDialog({ materialId: material.id.toString() })
 }
 
 const startRename = (material: Material) => {

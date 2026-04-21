@@ -31,6 +31,16 @@ export class MaterialController {
     return this.materialService.getProjectMaterials(projectId, type, keyword, userId);
   }
 
+  @Post('detail')
+  @UseGuards(JwtAuthGuard)
+  async getMaterialDetail(
+    @Body('materialId') materialId: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+    return this.materialService.getMaterialDetail(materialId, userId);
+  }
+
   @Post('delete')
   @UseGuards(JwtAuthGuard)
   async deleteMaterial(
@@ -63,5 +73,17 @@ export class MaterialController {
   ) {
     const userId = req.user.userId;
     return this.materialService.tagMaterialImage(projectId, materialId, userId);
+  }
+
+  @Post('updateTags')
+  @UseGuards(JwtAuthGuard)
+  async updateMaterialTags(
+    @Body('projectId') projectId: string,
+    @Body('materialId') materialId: string,
+    @Body('tags') tags: string[],
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+    return this.materialService.updateMaterialTags(projectId, materialId, tags, userId);
   }
 }

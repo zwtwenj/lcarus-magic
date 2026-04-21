@@ -16,6 +16,11 @@ interface UploadFile {
 export class MaterialService {
   private ossClient: OSSClient;
 
+  private formatDate(date: Date): string {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
   constructor(
     @InjectRepository(Material)
     private materialRepository: Repository<Material>,
@@ -54,7 +59,7 @@ export class MaterialService {
     return this.materialRepository.save(material);
   }
 
-  async getProjectMaterials(projectId: string, type: string, keyword: string, userId: number): Promise<Material[]> {
+  async getProjectMaterials(projectId: string, type: string, keyword: string, userId: number): Promise<{ id: number; type: string; name: string; url: string; projectId: number; userId: number; createdAt: Date; tags?: string[]; fileSize?: string; project: { id: number; name: string } }[]> {
 
     const whereCondition: any = {
       projectId: parseInt(projectId),
@@ -69,11 +74,56 @@ export class MaterialService {
       whereCondition.name = Like(`%${keyword}%`);
     }
 
-    const result = await this.materialRepository.find({
+    const materials = await this.materialRepository.find({
       where: whereCondition,
+      relations: ['project'],
     });
 
-    return result;
+    return materials.map(m => ({
+      id: m.id,
+      type: m.type,
+      name: m.name,
+      url: m.url,
+      projectId: m.projectId,
+      userId: m.userId,
+      createdAt: m.createdAt,
+      tags: m.tags,
+      fileSize: m.fileSize,
+      project: {
+        id: m.project.id,
+        name: m.project.name,
+      },
+    }));
+  }
+
+  async getMaterialDetail(materialId: string, userId: number): Promise<{ id: number; type: string; name: string; url: string; projectId: number; userId: number; createdAt: string; tags?: string[]; fileSize?: string; project: { id: number; name: string } }> {
+    const material = await this.materialRepository.findOne({
+      where: {
+        id: parseInt(materialId),
+        userId: userId,
+      },
+      relations: ['project'],
+    });
+
+    if (!material) {
+      throw new Error('素材不存在或无权访问');
+    }
+
+    return {
+      id: material.id,
+      type: material.type,
+      name: material.name,
+      url: material.url,
+      projectId: material.projectId,
+      userId: material.userId,
+      createdAt: this.formatDate(material.createdAt),
+      tags: material.tags,
+      fileSize: material.fileSize,
+      project: {
+        id: material.project.id,
+        name: material.project.name,
+      },
+    };
   }
 
   async deleteMaterial(projectId: string, materialId: string, userId: number): Promise<void> {
@@ -131,6 +181,24 @@ export class MaterialService {
     });
 
     material.tags = tagResult.tags || [];
+
+    return this.materialRepository.save(material);
+  }
+
+  async updateMaterialTags(projectId: string, materialId: string, tags: string[], userId: number): Promise<Material> {
+    const material = await this.materialRepository.findOne({
+      where: {
+        id: parseInt(materialId),
+        projectId: parseInt(projectId),
+        userId: userId,
+      },
+    });
+
+    if (!material) {
+      throw new Error('素材不存在或无权操作');
+    }
+
+    material.tags = tags;
 
     return this.materialRepository.save(material);
   }
