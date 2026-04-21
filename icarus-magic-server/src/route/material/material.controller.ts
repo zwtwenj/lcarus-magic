@@ -53,4 +53,15 @@ export class MaterialController {
     const userId = req.user.userId;
     return this.materialService.renameMaterial(projectId, materialId, newName, userId);
   }
+
+  @Post('tag')
+  @UseGuards(JwtAuthGuard)
+  async tagMaterialImage(
+    @Body('projectId') projectId: string,
+    @Body('materialId') materialId: string,
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+    return this.materialService.tagMaterialImage(projectId, materialId, userId);
+  }
 }

@@ -17,6 +17,13 @@ export class Material {
   @Column('text')
   name: string;
 
+  @Column({
+    type: 'varchar',
+    length: 100,
+    nullable: true
+  })
+  fileSize: string;
+
   @Column('simple-array', {
     nullable: true
   })

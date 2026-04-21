@@ -10,7 +10,17 @@ export const useCreateDialog = () => {
     })
   }
 
+  // 打开素材详情
+  const openMaterialInfoDialog = async (options: Record<string, any> = {}) => {
+    const { default: MaterialInfoDialog } = await import('@/dialog/materialInfo.vue')
+    return createDialog(MaterialInfoDialog, options, {
+      title: '素材信息',
+      width: 1200
+    })
+  }
+
   return {
-    createProjectDialog
+    createProjectDialog,
+    openMaterialInfoDialog
   }
 }

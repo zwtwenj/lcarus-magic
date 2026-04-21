@@ -8,6 +8,8 @@ export interface Material {
   projectId: number
   userId: number
   createdAt: Date
+  tags?: string[]
+  fileSize?: string
 }
 
 export interface AddMaterialParams {
@@ -30,6 +32,11 @@ export interface RenameMaterialParams {
   projectId: string
   materialId: string
   newName: string
+}
+
+export interface TagMaterialParams {
+  projectId: string
+  materialId: string
 }
 
 export const addMaterial = async (params: AddMaterialParams): Promise<Material> => {
@@ -56,5 +63,10 @@ export const deleteMaterial = async (params: DeleteMaterialParams): Promise<void
 
 export const renameMaterial = async (params: RenameMaterialParams): Promise<Material> => {
   const response = await request.post<Material>('/material/rename', params)
+  return response as unknown as Material
+}
+
+export const tagMaterial = async (params: TagMaterialParams): Promise<Material> => {
+  const response = await request.post<Material>('/material/tag', params)
   return response as unknown as Material
 }

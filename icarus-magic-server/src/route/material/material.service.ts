@@ -5,6 +5,7 @@ import { Material } from './material.entity';
 import { ConfigService } from '@nestjs/config';
 import OSSClient from '../../lib/oss';
 import { v4 as uuidv4 } from 'uuid';
+import { tagImage as qwenVLTagImage } from '../../model/qwenVL';
 
 interface UploadFile {
   originalname: string;
@@ -32,13 +33,13 @@ export class MaterialService {
     } else if (['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext)) {
       return 'voice';
     }
-    return 'image'; // 默认类型
+    return 'image';
   }
 
   async uploadMaterial(projectId: string, file: UploadFile, userId: number): Promise<Material> {
     const ossFileName = `/material/${file.originalname}-${uuidv4()}`;
     const fileUrl = await this.ossClient.uploadBufferAndGetUrl(file.buffer, ossFileName);
-    
+
     if (!fileUrl) {
       throw new Error('文件上传失败');
     }
@@ -54,7 +55,7 @@ export class MaterialService {
   }
 
   async getProjectMaterials(projectId: string, type: string, keyword: string, userId: number): Promise<Material[]> {
-    
+
     const whereCondition: any = {
       projectId: parseInt(projectId),
       userId: userId,
@@ -67,11 +68,11 @@ export class MaterialService {
     if (keyword) {
       whereCondition.name = Like(`%${keyword}%`);
     }
-    
+
     const result = await this.materialRepository.find({
       where: whereCondition,
     });
-    
+
     return result;
   }
 
@@ -105,6 +106,32 @@ export class MaterialService {
     }
 
     material.name = newName;
+    return this.materialRepository.save(material);
+  }
+
+  async tagMaterialImage(projectId: string, materialId: string, userId: number): Promise<Material> {
+    const material = await this.materialRepository.findOne({
+      where: {
+        id: parseInt(materialId),
+        projectId: parseInt(projectId),
+        userId: userId,
+      },
+    });
+
+    if (!material) {
+      throw new Error('素材不存在或无权操作');
+    }
+
+    if (material.type !== 'image') {
+      throw new Error('只有图片素材才能打标');
+    }
+
+    const tagResult = await qwenVLTagImage(this.configService, {
+      image: material.url,
+    });
+
+    material.tags = tagResult.tags || [];
+
     return this.materialRepository.save(material);
   }
 }
