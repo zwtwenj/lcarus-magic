@@ -78,3 +78,22 @@ export const saveText = async (params: SaveTextParams): Promise<GetProjectInfoRe
   const response = await request.post<GetProjectInfoResponse>('/project/saveText', params) as unknown as GetProjectInfoResponse;
   return response;
 };
+
+// 一键成片请求参数接口
+export interface OneClickGenerateParams {
+  projectId: string;
+  materials: string[];
+}
+
+// 一键成片响应接口
+export interface OneClickGenerateResponse {
+  projectId: string;
+  materials: string[];
+  message: string;
+}
+
+// 一键成片
+export const oneClickGenerate = async (params: OneClickGenerateParams): Promise<OneClickGenerateResponse> => {
+  const response = await request.post<OneClickGenerateResponse>('/project/generate', params) as unknown as OneClickGenerateResponse;
+  return response;
+};

@@ -45,8 +45,24 @@ export class ListDto {
     
     @IsOptional()
     @IsString()
-    @Transform(({ value }) => value || '') 
+    @Transform(({ value }) => value || '')
     userId: string = '';
+}
+
+/**
+ * 一键成片 DTO
+ * @param projectId 项目ID
+ * @param materials 素材URL列表
+ */
+export class OneClickGenerateDto {
+    @IsDefined()
+    @IsNotEmpty()
+    @IsString()
+    projectId: string;
+
+    @IsDefined()
+    @IsNotEmpty()
+    materials: string[];
 }
 
 /**

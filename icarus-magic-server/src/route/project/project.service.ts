@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project, Segment } from './project.entity';
 import { User } from '../user/user.entity';
-import { CreateProjectDto, ListDto, SaveTextDto } from './project.dto';
+import { CreateProjectDto, ListDto, SaveTextDto, OneClickGenerateDto } from './project.dto';
 import dayjs from 'dayjs';
 
 @Injectable()
@@ -152,5 +152,16 @@ export class ProjectService {
     await this.projectRepository.save(project);
 
     return 'success';
+  }
+
+  // 一键成片
+  async oneClickGenerate(dto: OneClickGenerateDto) {
+    const { projectId, materials } = dto;
+    // TODO: 实现具体逻辑
+    return {
+      projectId,
+      materials,
+      message: '功能开发中'
+    };
   }
 }

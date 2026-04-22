@@ -35,4 +35,8 @@ export class Sound {
   // 是否测试音
   @Column()
   isTest: boolean = true;
+
+  // 时长（秒）
+  @Column({ type: 'float', nullable: true })
+  duration: number;
 }

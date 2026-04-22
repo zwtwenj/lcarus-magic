@@ -3,6 +3,7 @@ import { ref, watch } from 'vue'
 import { ElCard, ElButton, ElUpload, ElMessage, ElTabPane, ElTabs, ElImage, ElInput, ElIcon, ElMessageBox, ElCheckbox } from 'element-plus'
 import { Plus, Delete, Edit, Select } from '@element-plus/icons-vue'
 import { addMaterial, getMaterials, deleteMaterial as deleteMaterialApi, renameMaterial, type Material } from '@/api/material'
+import { oneClickGenerate } from '@/api/project'
 import { useProjectStore } from '@/store/project.store'
 import { useCreateDialog } from '@/hook/dialog.hooks'
 
@@ -226,6 +227,27 @@ const batchDelete = async () => {
     }
   }
 }
+
+const handleOneClickGenerate = async () => {
+  if (selectedMaterialIds.value.length === 0) {
+    ElMessage.warning('请先选择素材')
+    return
+  }
+
+  const selectedMaterials = materials.value.filter(m => selectedMaterialIds.value.includes(m.id))
+  const materialUrls = selectedMaterials.map(m => m.url)
+
+  try {
+    const result = await oneClickGenerate({
+      projectId: projectStore.projectId.toString(),
+      materials: materialUrls
+    })
+    ElMessage.success(result.message || '一键成片功能开发中')
+  } catch (error) {
+    console.error('一键成片失败:', error)
+    ElMessage.error('一键成片失败')
+  }
+}
 </script>
 
 <template>
@@ -355,6 +377,7 @@ const batchDelete = async () => {
         </div>
       </div>
     </div>
+    <el-button type="primary" style="margin-top: 20px;" @click="handleOneClickGenerate">一键成片</el-button>
   </div>
 </template>
 

@@ -9,6 +9,7 @@ import OSSClient from '../../lib/oss';
 import { SpeechSynthesizer, synthesizeSpeech } from '../../model/cosyvoice';
 import { TaskService } from '../task/task.service';
 import { TaskStatus } from '../task/task.dto';
+import mp3Duration from 'mp3-duration';
 
 @Injectable()
 export class SoundService {
@@ -92,13 +93,17 @@ export class SoundService {
         throw new NotFoundException(`Voice with voiceId ${voiceId} not found`);
       }
       
+      // 获取 MP3 时长
+      const duration = await mp3Duration(result.audio);
+      
       // 保存到 sound 表
       const sound = this.soundRepository.create({
         text,
         url: ossUrl,
         voiceId: voice.id, // 这里使用 Voice 表的 id 作为外键
         projectId,
-        isTest: true
+        isTest: true,
+        duration
       });
       
       const savedSound = await this.soundRepository.save(sound);
@@ -213,6 +218,9 @@ export class SoundService {
         throw new Error('上传到 OSS 失败');
       }
       
+      // 获取 MP3 时长
+      const duration = await mp3Duration(result.audio);
+      
       // 查找对应的 Voice 记录
       const voice = await this.voiceRepository.findOne({
         where: { voiceId }
@@ -228,7 +236,8 @@ export class SoundService {
         url: ossUrl,
         voiceId: voice.id,
         projectId,
-        isTest: false
+        isTest: false,
+        duration
       });
       
       const savedSound = await this.soundRepository.save(sound);

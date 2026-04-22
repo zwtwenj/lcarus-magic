@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
-import { CreateProjectDto, ListDto, SaveTextDto } from './project.dto';
+import { CreateProjectDto, ListDto, SaveTextDto, OneClickGenerateDto } from './project.dto';
 
 @Controller('project')
 export class ProjectController {
@@ -36,5 +36,11 @@ export class ProjectController {
   @Post('/saveText')
   async saveText(@Body() dto: SaveTextDto) {
     return this.projectService.saveText(dto);
+  }
+
+  // 一键成片
+  @Post('/generate')
+  async oneClickGenerate(@Body() dto: OneClickGenerateDto) {
+    return this.projectService.oneClickGenerate(dto);
   }
 }
