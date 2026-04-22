@@ -67,3 +67,57 @@ export async function callCozePolishWorkflow(
   const result = await response.text();
   return result;
 }
+
+/**
+ * 调用 Coze 素材匹配工作流
+ * @param voiceData 声音数据数组
+ * @param imageData 图片数据数组
+ * @param configService 配置服务
+ * @returns 匹配结果
+ */
+export async function callCozeMaterialMatch(
+  voiceData: unknown[],
+  imageData: unknown[],
+  configService: ConfigService
+): Promise<{ status: number; contentType: string; bodyText: string }> {
+  // 验证参数
+  if (!Array.isArray(voiceData) || voiceData.length === 0) {
+    throw new Error('voiceData 必填，且必须为非空数组');
+  }
+  if (!Array.isArray(imageData) || imageData.length === 0) {
+    throw new Error('imageData 必填，且必须为非空数组');
+  }
+  
+  // 获取 token
+  const token = configService.get<string>('COZE_MATERIAL_MATCH_TOKEN');
+  if (!token) {
+    throw new Error('缺少 COZE_MATERIAL_MATCH_TOKEN，请先在 .env 中配置');
+  }
+  
+  // 构建请求体
+  const payload = {
+    voice_data: voiceData,
+    image_data: imageData
+  };
+  
+  // 发送请求
+  const materialMatchUrl = configService.get<string>('COZE_MATERIAL_MATCH_URL') || 'https://zjvcxg3wvv.coze.site/run';
+  const response = await fetch(materialMatchUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  
+  // 获取响应数据
+  const contentType = response.headers.get('content-type') || '';
+  const bodyText = await response.text();
+  
+  return {
+    status: response.status,
+    contentType,
+    bodyText
+  };
+}

@@ -6,9 +6,12 @@ import {
   Query,
   ParseIntPipe,
   Logger,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto, ListDto, SaveTextDto, OneClickGenerateDto } from './project.dto';
+import { JwtAuthGuard } from '../../transform/jwt-auth.guard';
 
 @Controller('project')
 export class ProjectController {
@@ -40,7 +43,8 @@ export class ProjectController {
 
   // 一键成片
   @Post('/generate')
-  async oneClickGenerate(@Body() dto: OneClickGenerateDto) {
-    return this.projectService.oneClickGenerate(dto);
+  @UseGuards(JwtAuthGuard)
+  async oneClickGenerate(@Body() dto: OneClickGenerateDto, @Req() req: any) {
+    return this.projectService.generate(dto, req.user.userId);
   }
 }

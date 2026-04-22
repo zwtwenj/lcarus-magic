@@ -77,7 +77,6 @@ export class TaskController {
   @Post('/status')
   async getTaskStatus(@Body() body: { id: number }, @Req() req: any) {
     const result = await this.taskService.getTaskStatus(body.id, req.user.userId);
-    console.log(result)
     if (!result) {
       throw new NotFoundException('任务不存在或用户不匹配')
     } else {

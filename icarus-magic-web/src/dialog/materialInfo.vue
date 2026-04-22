@@ -341,7 +341,7 @@ const cancelEditTags = () => {
   display: flex;
   gap: 8px;
   font-size: 14px;
-  align-items: center;
+  align-items: baseline;
 }
 
 .detail-item label {

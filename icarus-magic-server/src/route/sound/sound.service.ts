@@ -246,6 +246,7 @@ export class SoundService {
       await this.taskService.updateTaskStatus(taskId, TaskStatus.completed, {
         url: ossUrl,
         id: savedSound.id,
+        duration: savedSound.duration,
         segmentSort: segment.sort
       });
     } catch (error) {
@@ -297,7 +298,9 @@ export class SoundService {
               const taskRes = typeof childTask.res === 'string' ? JSON.parse(childTask.res) : childTask.res;
               return {
                 ...segment,
-                sound: taskRes?.url || null
+                sound: taskRes?.url || null,
+                soundId: taskRes?.id || null,
+                duration: taskRes?.duration || null
               };
             }
 

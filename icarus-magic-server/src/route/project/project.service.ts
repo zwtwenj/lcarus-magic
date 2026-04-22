@@ -1,9 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Project, Segment } from './project.entity';
 import { User } from '../user/user.entity';
+import { Material } from '../material/material.entity';
 import { CreateProjectDto, ListDto, SaveTextDto, OneClickGenerateDto } from './project.dto';
+import { callCozeMaterialMatch } from '../../model/coze';
 import dayjs from 'dayjs';
 
 @Injectable()
@@ -13,6 +16,9 @@ export class ProjectService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Material)
+    private readonly materialRepository: Repository<Material>,
+    private readonly configService: ConfigService,
   ) {}
 
   // 创建项目
@@ -144,7 +150,9 @@ export class ProjectService {
       .map((segmentText, index) => ({
         sort: index + 1,
         text: segmentText.trim(),
-        sound: null
+        sound: null,
+        soundId: null,
+        duration: null
       }));
     
     // 更新 segments 字段
@@ -155,12 +163,76 @@ export class ProjectService {
   }
 
   // 一键成片
-  async oneClickGenerate(dto: OneClickGenerateDto) {
+  async generate(dto: OneClickGenerateDto, userId: number) {
     const { projectId, materials } = dto;
-    // TODO: 实现具体逻辑
+    
+    // 查找项目并提取 segments
+    const project = await this.projectRepository.findOne({
+      where: { id: parseInt(projectId), user: { id: userId } }
+    });
+    
+    if (!project) {
+      throw new NotFoundException('项目不存在或无权限访问');
+    }
+    
+    const segments = project.segments || [];
+
+    if (segments.length === 0) {
+      throw new BadRequestException('项目没有可用的语音段落');
+    }
+
+    // 查询 materials 并组装 image_data
+    let imageData: { material_url: string; tip: string[] }[] = [];
+    if (materials && materials.length > 0) {
+      const materialRecords = await this.materialRepository.findByIds(materials);
+      imageData = materialRecords.map(m => ({
+        material_url: m.url,
+        tip: m.tags || []
+      }));
+    }
+
+    if (imageData.length === 0) {
+      throw new BadRequestException('没有可用的素材');
+    }
+
+    const params = {
+      voice_data: segments.map(segment => ({
+        index: segment.sort,
+        text: segment.text,
+        ossUrl: segment.sound,
+        format: "mp3",
+        durationSeconds: segment.duration
+      })),
+      image_data: imageData
+    }
+    
+    // 调用 Coze 素材匹配工作流
+    const voiceData = params.voice_data.map(v => ({
+      index: v.index,
+      text: v.text,
+      voiceId: project.voiceId || '',
+      ossUrl: v.ossUrl,
+      format: v.format,
+      durationSeconds: v.durationSeconds
+    }));
+    
+    console.log('调用 Coze 素材匹配工作流，参数：', { voiceData, imageData });
+    let cozeResult;
+    try {
+      cozeResult = await callCozeMaterialMatch(voiceData, imageData, this.configService);
+      console.log('Coze 调用成功：', cozeResult);
+    } catch (error) {
+      console.error('Coze 调用失败：', error);
+      throw error;
+    }
+    // {"matched_data":[{"index":1,"text":"近日有网友爆料，快手研发线发布通知，收紧了对第三方编程软件的使用权限。","voiceId":"longhouge_v3","ossUrl":"http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3","format":"mp3","durationSeconds":9.326,"matched_image_url":"http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/8fb1a76156adf997c22ec96b22696aeb.jpg-69dba10e-266f-4932-a584-ec59b8435277","matched_image_tip":["SpaceX","Cursor AI","人工智能","编程助手","超级计算机","收购","合作"]},{"index":2,"text":"不少习惯用AI辅助开发的员工陷入困境：原本计划用1小时AI生成代码，剩余时间可灵活安排，如今只能手动查找代码模板、翻阅API文档，能否按时完成工作成未知数。有员工调侃，没了Cursor，连Hello World都写不顺手。","voiceId":"longhouge_v3","ossUrl":"http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3","format":"mp3","durationSeconds":27.69,"matched_image_url":"http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/ea7be92a0e10926775eb89ad2856b50b.jpg-ceb61364-d4a3-4b8b-8658-9f9d3e681ab7","matched_image_tip":["Cursor","三维几何","白色标志","黑色背景","立方体图标","现代设计","技术品牌"]}],"run_id":"b4b79f45-5457-42c3-814c-489092a724fa"}
+    
     return {
       projectId,
       materials,
+      segments,
+      params,
+      cozeResult,
       message: '功能开发中'
     };
   }

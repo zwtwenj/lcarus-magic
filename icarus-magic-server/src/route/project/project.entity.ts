@@ -7,6 +7,8 @@ export interface Segment {
   sort: number;
   text: string;
   sound: string | null;
+  soundId: number | null;
+  duration: number | null;
 }
 
 @Entity()

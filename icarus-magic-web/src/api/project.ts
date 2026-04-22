@@ -89,6 +89,9 @@ export interface OneClickGenerateParams {
 export interface OneClickGenerateResponse {
   projectId: string;
   materials: string[];
+  segments: any[];
+  params: any;
+  cozeResult: any;
   message: string;
 }
 

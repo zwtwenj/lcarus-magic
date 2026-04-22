@@ -235,13 +235,14 @@ const handleOneClickGenerate = async () => {
   }
 
   const selectedMaterials = materials.value.filter(m => selectedMaterialIds.value.includes(m.id))
-  const materialUrls = selectedMaterials.map(m => m.url)
+  const materialIds = selectedMaterials.map(m => m.id.toString())
 
   try {
     const result = await oneClickGenerate({
       projectId: projectStore.projectId.toString(),
-      materials: materialUrls
+      materials: materialIds
     })
+    console.log('一键成片结果:', result)
     ElMessage.success(result.message || '一键成片功能开发中')
   } catch (error) {
     console.error('一键成片失败:', error)

@@ -220,12 +220,16 @@ export class TaskService {
             return {
               taskId: child.id,
               text: req.text || '',
+              soundId: res.id || null,
+              duration: res.duration || null,
               res: res
             };
           } catch (error) {
             return {
               taskId: child.id,
               text: '',
+              soundId: null,
+              duration: null,
               res: {}
             };
           }
@@ -239,12 +243,16 @@ export class TaskService {
             return {
               taskId: child.id,
               text: req.text || '',
+              soundId: res.id || null,
+              duration: res.duration || null,
               res: res
             };
           } catch (error) {
             return {
               taskId: child.id,
               text: '',
+              soundId: null,
+              duration: null,
               res: {}
             };
           }
