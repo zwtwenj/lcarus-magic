@@ -45,9 +45,10 @@ export const useProjectStore = defineStore('project', {
     menu: [
       { key: 'overview', label: '总览', icon: 'House' },
       { key: 'text', label: '文本', icon: 'Document' },
-      { key: 'materials', label: '素材', icon: 'Picture' },
       { key: 'sound', label: '声音', icon: 'Microphone' },
-      { key: 'task', label: '任务', icon: 'Tag' }
+      { key: 'subtitle', label: '字幕', icon: 'Comment' },
+      { key: 'materials', label: '素材', icon: 'Picture' },
+      { key: 'task', label: '任务', icon: 'PriceTag' }
     ] as MenuItem[],
     // 当前菜单
     currentMenu: 'overview'

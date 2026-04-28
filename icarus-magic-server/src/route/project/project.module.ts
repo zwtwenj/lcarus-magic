@@ -5,10 +5,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Project } from './project.entity';
 import { User } from '../user/user.entity';
 import { Material } from '../material/material.entity';
+import { Task } from '../task/task.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Project, User, Material]),
+        TypeOrmModule.forFeature([Project, User, Material, Task]),
     ],
     controllers: [ProjectController],
     providers: [ProjectService],

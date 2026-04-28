@@ -22,7 +22,7 @@ export class Task {
   status!: TaskStatus;
   
   @Column()
-  // enum: 任务类型 project subtitle projectSounds sound material
+  // enum: 任务类型 project subtitle projectSounds sound material video
   type!: string;
 
   @Column()

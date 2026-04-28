@@ -121,3 +121,46 @@ export async function callCozeMaterialMatch(
     bodyText
   };
 }
+
+/**
+ * 调用 Coze FFmpeg 命令生成工作流
+ * @param jsonInput 输入参数（包含 timeline、subtitle、output 等配置）
+ * @param configService 配置服务
+ * @returns FFmpeg 命令结果
+ */
+export async function callCozeFfmpegCommand(
+  jsonInput: Record<string, unknown>,
+  configService: ConfigService
+): Promise<{ status: number; contentType: string; bodyText: string }> {
+  // 验证参数
+  if (jsonInput == null || typeof jsonInput !== 'object' || Array.isArray(jsonInput)) {
+    throw new Error('jsonInput 须为普通对象');
+  }
+
+  // 获取 token
+  const token = configService.get<string>('COZE_FFMPEG_TOKEN');
+  if (!token) {
+    throw new Error('缺少 COZE_FFMPEG_TOKEN，请先在 .env 中配置');
+  }
+
+  // 发送请求
+  const ffmpegUrl = 'https://kb63ygfhzp.coze.site/run';
+  const response = await fetch(ffmpegUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ json_input: jsonInput })
+  });
+
+  // 获取响应数据
+  const contentType = response.headers.get('content-type') || '';
+  const bodyText = await response.text();
+
+  return {
+    status: response.status,
+    contentType,
+    bodyText
+  };
+}

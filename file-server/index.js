@@ -9,7 +9,7 @@ const mkdirp = require('mkdirp');
 const execAsync = util.promisify(exec);
 
 const app = express();
-const port = 3000;
+const port = 3001;
 
 // 解析 JSON 请求体
 app.use(express.json());

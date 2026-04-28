@@ -51,6 +51,16 @@ const router = createRouter({
           name: 'sound',
           component: () => import('../views/projects/sound.vue'),
         },
+        {
+          path: 'subtitle',
+          name: 'subtitle',
+          component: () => import('../views/projects/subtitle.vue'),
+        },
+        {
+          path: 'task',
+          name: 'task',
+          component: () => import('../views/projects/task.vue'),
+        },
       ],
     },
     {
