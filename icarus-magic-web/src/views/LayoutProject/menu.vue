@@ -11,8 +11,8 @@
         :class="{ active: currentMenu === item.key }"
         @click="setCurrentMenu(item.key)"
       >
-        <el-icon class="menu-icon">
-          <component :is="item.icon" />
+        <el-icon v-if="getIconComponent(item.icon)" class="menu-icon">
+          <component :is="getIconComponent(item.icon)" />
         </el-icon>
         <span>{{ item.label }}</span>
       </div>
@@ -21,15 +21,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, type Component } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useProjectStore } from '../../store/project.store'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
 const projectStore = useProjectStore()
 const menu = computed(() => projectStore.menu)
 const currentMenu = computed(() => projectStore.currentMenu || 'overview')
+
+const getIconComponent = (iconName: string): Component | null => {
+  if (!iconName) return null
+  const icon = (ElementPlusIconsVue as Record<string, Component>)[iconName]
+  return icon || null
+}
 
 const setCurrentMenu = (menu: string) => {
   projectStore.currentMenu = menu

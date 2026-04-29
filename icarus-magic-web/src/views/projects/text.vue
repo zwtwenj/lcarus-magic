@@ -255,6 +255,7 @@ const polishText = async () => {
 
 <style scoped lang="less">
 .project-text {
+    width: 100%;
     .page-header {
     display: flex;
     justify-content: space-between;
@@ -270,7 +271,7 @@ const polishText = async () => {
   }
   
   .text-content {
-    background-color: #ffffff;
+    // background-color: #ffffff;
   }
   
   .text-display {
@@ -286,7 +287,7 @@ const polishText = async () => {
         
         .segment-item {
           padding: 16px;
-          background-color: #f9fafc;
+          background-color: #fff;
           border-radius: 8px;
           border-left: 4px solid #409eff;
           
@@ -323,7 +324,6 @@ const polishText = async () => {
         min-width: 0;
         
         .edit-section {
-          margin-bottom: 20px;
           
           .edit-label {
             display: block;

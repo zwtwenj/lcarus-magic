@@ -48,7 +48,9 @@ export const useProjectStore = defineStore('project', {
       { key: 'sound', label: '声音', icon: 'Microphone' },
       { key: 'subtitle', label: '字幕', icon: 'Comment' },
       { key: 'materials', label: '素材', icon: 'Picture' },
-      { key: 'task', label: '任务', icon: 'PriceTag' }
+      { key: 'task', label: '任务', icon: 'PriceTag' },
+      { key: 'generate', label: '生成', icon: 'PriceTag' },
+      { key: 'video', label: '视频', icon: 'PriceTag' }
     ] as MenuItem[],
     // 当前菜单
     currentMenu: 'overview'

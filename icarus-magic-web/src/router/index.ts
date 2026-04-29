@@ -57,6 +57,16 @@ const router = createRouter({
           component: () => import('../views/projects/subtitle.vue'),
         },
         {
+          path: 'generate',
+          name: 'generate',
+          component: () => import('../views/projects/generate.vue'),
+        },
+        {
+          path: 'video',
+          name: 'video',
+          component: () => import('../views/projects/video.vue'),
+        },
+        {
           path: 'task',
           name: 'task',
           component: () => import('../views/projects/task.vue'),
