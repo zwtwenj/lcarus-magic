@@ -63,4 +63,8 @@ Style: Default,${config.fontname},${config.fontsize},${primaryColor},${secondary
     
     return await this.subtitleConfigRepository.save(subtitleConfig);
   }
+
+  async delete(id: number, userId: number): Promise<void> {
+    await this.subtitleConfigRepository.delete({ id, userId });
+  }
 }

@@ -8,6 +8,12 @@ import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, El
 
 const projectStore = useProjectStore()
 
+const props = withDefaults(defineProps<{
+  isGenerate?: boolean
+}>(), {
+  isGenerate: false
+})
+
 const segments = computed(() => {
   return projectStore.projectData.segments || []
 })
@@ -403,21 +409,22 @@ const generateAndSaveAll = async () => {
 .project-sound {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  padding: 20px;
+  // min-height: 100vh;
 
   h2 {
     margin-top: 0;
-    margin-bottom: 32px;
-    font-size: 24px;
+    margin-bottom: 20px;
+    font-size: 18px;
     font-weight: 700;
     color: #1a1a1a;
+    height: 38px;
+    line-height: 38px;
   }
 
   .content-container {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 24px;
+    gap: 20px;
     flex: 1;
     min-height: 0;
 
@@ -427,7 +434,7 @@ const generateAndSaveAll = async () => {
   }
 
   .left-column {
-    height: 700px;
+    // height: 700px;
 
     .left-scroll {
       height: 100%;
@@ -458,7 +465,7 @@ const generateAndSaveAll = async () => {
   }
 
   .right-column {
-    height: 700px;
+    // height: 700px;
 
     .right-scroll {
       height: 100%;

@@ -53,7 +53,11 @@ export const useProjectStore = defineStore('project', {
       { key: 'video', label: '视频', icon: 'PriceTag' }
     ] as MenuItem[],
     // 当前菜单
-    currentMenu: 'overview'
+    currentMenu: 'overview',
+    // 生成参数
+    generateParams: {
+      subtitleId: null
+    }
   }),
   actions: {
     async fetchProjectDetail(projectId: number) {

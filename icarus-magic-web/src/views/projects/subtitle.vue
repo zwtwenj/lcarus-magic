@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getSubtitleList, type SubtitleConfig } from '@/api/subititle'
-import { ElMessage } from 'element-plus'
+import { getSubtitleList, deleteSubtitleConfig, type SubtitleConfig } from '@/api/subititle'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCreateDialog } from '@/hook/dialog.hooks'
+import { useProjectStore } from '@/store/project.store'
 
 const { openSubtitleConfigDialog } = useCreateDialog()
+const projectStore = useProjectStore()
 const subtitleList = ref<SubtitleConfig[]>([])
+
+const props = withDefaults(defineProps<{
+  isGenerate?: boolean
+}>(), {
+  isGenerate: false
+})
 
 const loadList = async () => {
   try {
@@ -27,6 +35,32 @@ const handleAdd = () => {
   })
 }
 
+const handleDelete = async (item: SubtitleConfig) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除字幕配置"${item.name}"吗？`,
+      '删除确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    await deleteSubtitleConfig(item.id)
+    ElMessage.success('删除成功')
+    await loadList()
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const handleSelect = (item: SubtitleConfig) => {
+  projectStore.generateParams.subtitleId = item.id
+}
+
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
   return date.toLocaleString('zh-CN', {
@@ -37,12 +71,27 @@ const formatDate = (dateStr: string) => {
     minute: '2-digit'
   })
 }
+
+const getPreviewStyle = (configStr: string) => {
+  try {
+    const config = JSON.parse(configStr)
+    return {
+      fontFamily: config.fontname || 'Microsoft YaHei',
+      fontSize: (config.fontsize || 24) + 'px',
+      color: config.primaryColor || '#FFFFFF',
+      textShadow: `-2px -2px 0 ${config.outlineColor || '#000000'}, 2px -2px 0 ${config.outlineColor || '#000000'}, -2px 2px 0 ${config.outlineColor || '#000000'}, 2px 2px 0 ${config.outlineColor || '#000000'}`,
+      backgroundColor: config.backColor || 'rgba(0,0,0,0.5)'
+    }
+  } catch {
+    return {}
+  }
+}
 </script>
 
 <template>
   <div class="subtitle-page">
-    <div class="header">
-      <h1>字幕配置管理</h1>
+    <div class="page-header">
+      <h2>字幕设置</h2>
       <el-button type="primary" @click="handleAdd">+ 新增字幕配置</el-button>
     </div>
     
@@ -53,7 +102,12 @@ const formatDate = (dateStr: string) => {
         <el-button type="primary" @click="handleAdd">创建第一个配置</el-button>
       </div>
       
-      <el-card v-else class="config-card" v-for="item in subtitleList" :key="item.id">
+      <el-card v-else class="config-card" v-for="item in subtitleList" :key="item.id" :class="{ selected: projectStore.generateParams.subtitleId === item.id }">
+        <div class="card-radio" v-if="isGenerate">
+          <el-radio :model-value="projectStore.generateParams.subtitleId === item.id" @change="handleSelect(item)">
+            {{ item.name }}
+          </el-radio>
+        </div>
         <div class="card-header">
           <div class="config-name">{{ item.name }}</div>
           <div class="config-date">{{ formatDate(item.createdAt) }}</div>
@@ -66,58 +120,38 @@ const formatDate = (dateStr: string) => {
             </div>
           </div>
         </div>
-        <div class="card-footer">
-          <el-button size="small">编辑</el-button>
-          <el-button size="small" type="danger">删除</el-button>
+        <div class="card-footer" v-if="!isGenerate">
+          <el-button type="danger" @click="handleDelete(item)">删除</el-button>
         </div>
       </el-card>
     </div>
   </div>
 </template>
 
-<script lang="ts">
-export default {
-  methods: {
-    getPreviewStyle(configStr: string) {
-      try {
-        const config = JSON.parse(configStr)
-        return {
-          fontFamily: config.fontname || 'Microsoft YaHei',
-          fontSize: (config.fontsize || 24) + 'px',
-          color: config.primaryColor || '#FFFFFF',
-          textShadow: `-2px -2px 0 ${config.outlineColor || '#000000'}, 2px -2px 0 ${config.outlineColor || '#000000'}, -2px 2px 0 ${config.outlineColor || '#000000'}, 2px 2px 0 ${config.outlineColor || '#000000'}`,
-          backgroundColor: config.backColor || 'rgba(0,0,0,0.5)'
-        }
-      } catch {
-        return {}
-      }
-    }
-  }
-}
-</script>
-
 <style scoped lang="less">
 .subtitle-page {
-  padding: 24px;
+  width: 100%;
 }
 
-.header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
   
-  h1 {
-    font-size: 20px;
+  h2 {
+    margin: 0;
+    font-size: 18px;
     font-weight: 600;
     color: #303133;
-    margin: 0;
+    height: 38px;
+    line-height: 38px;
   }
 }
 
 .list-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 
@@ -146,10 +180,27 @@ export default {
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
+  border: 2px solid transparent;
   
   &:hover {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
+  }
+  
+  &.selected {
+    border-color: #409eff;
+    background-color: #ecf5ff;
+  }
+}
+
+.card-radio {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  
+  :deep(.el-radio__label) {
+    font-weight: 600;
+    color: #303133;
   }
 }
 

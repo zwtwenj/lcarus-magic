@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import Text from './text.vue'
+import Sound from './sound.vue'
+import Subtitle from './subtitle.vue'
 
 const steps = [
   { key: 'text', label: '文本' },
@@ -14,6 +16,18 @@ const currentStep = ref(0)
 
 const setStep = (index: number) => {
   currentStep.value = index
+}
+
+const nextStep = () => {
+  if (currentStep.value < steps.length - 1) {
+    currentStep.value++
+  }
+}
+
+const prevStep = () => {
+  if (currentStep.value > 0) {
+    currentStep.value--
+  }
 }
 </script>
 
@@ -48,22 +62,24 @@ const setStep = (index: number) => {
       
       <!-- 声音步骤 -->
       <div v-else-if="currentStep === 1" class="step-content">
-        <div class="content-card">
+        <!-- <div class="content-card">
           <div class="content-icon">🎙️</div>
           <h2>声音合成</h2>
           <p>选择语音类型、调整语速和音量，预览合成效果。</p>
           <el-button type="primary" size="large">选择声音</el-button>
-        </div>
+        </div> -->
+        <Sound />
       </div>
       
       <!-- 字幕步骤 -->
       <div v-else-if="currentStep === 2" class="step-content">
-        <div class="content-card">
+        <!-- <div class="content-card">
           <div class="content-icon">📄</div>
           <h2>字幕配置</h2>
           <p>配置字幕样式，包括字体、颜色、大小等效果。</p>
           <el-button type="primary" size="large">配置字幕</el-button>
-        </div>
+        </div> -->
+        <Subtitle :isGenerate="true" />
       </div>
       
       <!-- 素材步骤 -->
@@ -85,6 +101,12 @@ const setStep = (index: number) => {
           <el-button type="primary" size="large">开始生成</el-button>
         </div>
       </div>
+    </div>
+    
+    <!-- 底部导航按钮 -->
+    <div class="step-actions">
+      <el-button size="large" :disabled="currentStep === 0" @click="prevStep">上一步</el-button>
+      <el-button size="large" :disabled="currentStep === steps.length - 1" type="primary" @click="nextStep">下一步</el-button>
     </div>
   </div>
 </template>
@@ -174,6 +196,18 @@ const setStep = (index: number) => {
   display: flex;
   justify-content: center;
   width: 100%;
+}
+
+.step-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 20px;
+  
+  :deep(.el-button) {
+    padding: 12px 32px;
+    font-size: 16px;
+    border-radius: 8px;
+  }
 }
 
 .content-card {

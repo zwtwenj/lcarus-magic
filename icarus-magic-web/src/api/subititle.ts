@@ -25,3 +25,7 @@ export const getSubtitleList = async (): Promise<SubtitleConfig[]> => {
   const response = await request.post<SubtitleConfig[]>('/subtitle-config/list') as unknown as SubtitleConfig[]
   return response
 }
+
+export const deleteSubtitleConfig = async (id: number): Promise<void> => {
+  await request.post('/subtitle-config/delete', { id })
+}

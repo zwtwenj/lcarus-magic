@@ -30,4 +30,10 @@ export class SubtitleConfigController {
   async list(@Req() req: any) {
     return await this.subtitleConfigService.findAllByUserId(req.user.userId);
   }
+
+  // 删除字幕配置
+  @Post('/delete')
+  async delete(@Body('id') id: number, @Req() req: any) {
+    return await this.subtitleConfigService.delete(id, req.user.userId);
+  }
 }

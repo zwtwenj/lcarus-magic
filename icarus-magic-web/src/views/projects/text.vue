@@ -8,6 +8,12 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 const projectStore = useProjectStore()
 const projectData = computed(() => projectStore.projectData)
 
+const props = withDefaults(defineProps<{
+  isGenerate?: boolean
+}>(), {
+  isGenerate: false
+})
+
 // 编辑状态
 const isEditing = ref(false)
 // 编辑文本
@@ -267,6 +273,8 @@ const polishText = async () => {
       font-size: 18px;
       font-weight: 600;
       color: #303133;
+      height: 38px;
+      line-height: 38px;
     }
   }
   
