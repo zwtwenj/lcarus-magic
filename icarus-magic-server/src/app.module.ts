@@ -12,6 +12,7 @@ import { Config } from './route/common/config.entity';
 import { Voice } from './route/voice/voice.entity';
 import { Sound } from './route/sound/sound.entity';
 import { Material } from './route/material/material.entity';
+import { SubtitleConfig } from './route/subbitleConfig/subtitleConfig.entity';
 import { AuthModule } from './route/auth/auth.module'
 import { UserModule } from './route/user/user.module';
 import { LogsModule } from './route/logs/logs.module';
@@ -22,6 +23,7 @@ import { VoiceModule } from './route/voice/voice.module';
 import { CommonModule } from './route/common/common.module';
 import { SoundModule } from './route/sound/sound.module';
 import { MaterialModule } from './route/material/material.module';
+import { SubtitleConfigModule } from './route/subbitleConfig/subtitleConfig.module';
 
 @Module({
   imports: [
@@ -36,7 +38,7 @@ import { MaterialModule } from './route/material/material.module';
         username: configService.get('MYSQL_USER'),
         password: configService.get('MYSQL_PASSWORD'),
         database: configService.get('MYSQL_DATABASE'),
-        entities: [User, Roles, Logs, Task, Project, Coze, Config, Voice, Sound, Material],
+        entities: [User, Roles, Logs, Task, Project, Coze, Config, Voice, Sound, Material, SubtitleConfig],
         synchronize: false,
         logging: ['error', 'warn'],
       }),
@@ -52,6 +54,7 @@ import { MaterialModule } from './route/material/material.module';
     CommonModule,
     SoundModule,
     MaterialModule,
+    SubtitleConfigModule,
   ],
   controllers: [],
   providers: [],

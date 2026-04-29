@@ -19,8 +19,18 @@ export const useCreateDialog = () => {
     })
   }
 
+  // 打开字幕配置
+  const openSubtitleConfigDialog = async (options: Record<string, any> = {}) => {
+    const { default: CreateSubtitleDialog } = await import('@/dialog/createSubtitle.vue')
+    return createDialog(CreateSubtitleDialog, options, {
+      title: '字幕配置',
+      width: 1000
+    })
+  }
+
   return {
     createProjectDialog,
-    openMaterialInfoDialog
+    openMaterialInfoDialog,
+    openSubtitleConfigDialog
   }
 }

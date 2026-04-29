@@ -11,6 +11,9 @@ importers:
       '@element-plus/icons-vue':
         specifier: ^2.3.2
         version: 2.3.2(vue@3.5.32(typescript@6.0.2))
+      assjs:
+        specifier: ^0.1.6
+        version: 0.1.6
       axios:
         specifier: ^1.15.0
         version: 1.15.0
@@ -318,6 +321,9 @@ packages:
 
   alien-signals@3.1.2:
     resolution: {integrity: sha512-d9dYqZTS90WLiU0I5c6DHj/HcKkF8ZyGN3G5x8wSbslulz70KOxaqCT0hQCo9KOyhVqzqGojvNdJXoTumZOtcw==}
+
+  assjs@0.1.6:
+    resolution: {integrity: sha512-sHdLRIsZsXEdURGKlyJf+AbgoHhhOELh8Wl6K6TL/au9p4b4EQed62OPKayWFeFIj8W7I9OzvYtHV/+/MwDvkg==}
 
   async-validator@4.2.5:
     resolution: {integrity: sha512-7HhHjtERjqlNbZtqNqy2rckN/SpOOlmDliet+lP7k+eKZEjPk3DgyeU9lIXLdeLz0uBbbVp+9Qdow9wJWgwwfg==}
@@ -1040,6 +1046,8 @@ snapshots:
       - typescript
 
   alien-signals@3.1.2: {}
+
+  assjs@0.1.6: {}
 
   async-validator@4.2.5: {}
 
