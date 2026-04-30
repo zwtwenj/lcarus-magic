@@ -8,7 +8,7 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 const projectStore = useProjectStore()
 const projectData = computed(() => projectStore.projectData)
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   isGenerate?: boolean
 }>(), {
   isGenerate: false

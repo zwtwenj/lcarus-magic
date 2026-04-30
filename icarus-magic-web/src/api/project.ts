@@ -83,6 +83,7 @@ export const saveText = async (params: SaveTextParams): Promise<GetProjectInfoRe
 export interface OneClickGenerateParams {
   projectId: string;
   materials: string[];
+  subtitleId?: string;
 }
 
 // 一键成片响应接口

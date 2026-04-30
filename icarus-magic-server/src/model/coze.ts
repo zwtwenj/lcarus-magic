@@ -145,6 +145,7 @@ export async function callCozeFfmpegCommand(
 
   // 发送请求
   const ffmpegUrl = 'https://kb63ygfhzp.coze.site/run';
+  console.log('jsonInput', jsonInput);
   const response = await fetch(ffmpegUrl, {
     method: 'POST',
     headers: {

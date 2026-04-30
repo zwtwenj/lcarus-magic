@@ -56,7 +56,8 @@ export const useProjectStore = defineStore('project', {
     currentMenu: 'overview',
     // 生成参数
     generateParams: {
-      subtitleId: null
+      subtitleId: null as number | null,
+      selectedMaterialIds: [] as number[]
     }
   }),
   actions: {

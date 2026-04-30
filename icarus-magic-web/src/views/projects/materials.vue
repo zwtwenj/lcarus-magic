@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { ElCard, ElButton, ElUpload, ElMessage, ElTabPane, ElTabs, ElImage, ElInput, ElIcon, ElMessageBox, ElCheckbox } from 'element-plus'
+import { ElCard, ElButton, ElUpload, ElMessage, ElTabPane, ElTabs, ElImage, ElInput, ElIcon, ElMessageBox } from 'element-plus'
 import { Plus, Delete, Edit, Select } from '@element-plus/icons-vue'
 import { addMaterial, getMaterials, deleteMaterial as deleteMaterialApi, renameMaterial, type Material } from '@/api/material'
 import { useProjectStore } from '@/store/project.store'
@@ -9,7 +9,7 @@ import { useCreateDialog } from '@/hook/dialog.hooks'
 const projectStore = useProjectStore()
 const { openMaterialInfoDialog } = useCreateDialog()
 const materials = ref<Material[]>([])
-const activeTab = ref<'image' | 'video' | 'voice'>('image')
+const activeTab = ref<'image' | 'video'>('image')
 const uploading = ref(false)
 const uploadRef = ref()
 const uploadQueue = ref<File[]>([])
@@ -21,6 +21,12 @@ const nameInputRef = ref()
 const isSelectMode = ref(false)
 const selectedMaterialIds = ref<number[]>([])
 const searchKeyword = ref('')
+
+const props = withDefaults(defineProps<{
+  isGenerate?: boolean
+}>(), {
+  isGenerate: false
+})
 
 const fetchMaterials = async () => {
   if (!projectStore.projectId) return
@@ -53,18 +59,19 @@ watch(
   }
 )
 
+watch(
+  () => selectedMaterialIds.value,
+  (newVal) => {
+    if (props.isGenerate && projectStore.generateParams) {
+      projectStore.generateParams.selectedMaterialIds = newVal
+    }
+  },
+  { deep: true }
+)
+
 const filteredMaterials = () => {
   return materials.value.filter(m => m.type === activeTab.value)
 }
-
-// const getTypeIcon = (type: string) => {
-//   const icons: Record<string, string> = {
-//     image: '🖼️',
-//     video: '🎬',
-//     voice: '🔊'
-//   }
-//   return icons[type] || '📁'
-// }
 
 const processQueue = async () => {
   if (uploadIndex.value >= uploadQueue.value.length) {
@@ -238,7 +245,7 @@ const batchDelete = async () => {
           :show-file-list="false"
           :http-request="(options: any) => handleUpload(options.file)"
           multiple
-          accept="image/*,video/*,audio/*"
+          accept="image/*,video/*"
         >
           <el-button type="primary" :loading="uploading" size="default">
             <el-icon class="plus-icon"><Plus /></el-icon>
@@ -264,15 +271,6 @@ const batchDelete = async () => {
             <span>🎬</span>
             <span>视频</span>
             <span class="count">({{ materials.filter(m => m.type === 'video').length }})</span>
-          </span>
-        </template>
-      </el-tab-pane>
-      <el-tab-pane label="🔊 音频" name="voice">
-        <template #label>
-          <span class="tab-label">
-            <span>🔊</span>
-            <span>音频</span>
-            <span class="count">({{ materials.filter(m => m.type === 'voice').length }})</span>
           </span>
         </template>
       </el-tab-pane>
@@ -329,11 +327,6 @@ const batchDelete = async () => {
                   <span class="video-icon">🎬</span>
                 </div>
               </template>
-              <template v-else>
-                <div class="voice-preview">
-                  <span class="voice-icon">🔊</span>
-                </div>
-              </template>
             </div>
 
             <div class="material-info">
@@ -355,16 +348,15 @@ const batchDelete = async () => {
         </div>
       </div>
     </div>
-    <!-- <el-button type="primary" style="margin-top: 20px;" @click="handleOneClickGenerate">一键成片</el-button> -->
   </div>
 </template>
 
-<style scoped>
+<style lang="less" scoped>
 .project-materials {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 20px;
+  width: 100%;
 }
 
 .materials-header {
@@ -372,6 +364,14 @@ const batchDelete = async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  h2{
+    margin-top: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    height: 38px;
+    line-height: 38px;
+  }
 }
 
 .upload-section {
@@ -523,8 +523,7 @@ const batchDelete = async () => {
   height: 100%;
 }
 
-.video-preview,
-.voice-preview {
+.video-preview {
   width: 100%;
   height: 100%;
   display: flex;
@@ -538,8 +537,7 @@ const batchDelete = async () => {
   font-size: 24px;
 }
 
-.video-icon,
-.voice-icon {
+.video-icon {
   font-size: 36px;
 }
 

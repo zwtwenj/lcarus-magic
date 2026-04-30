@@ -9,7 +9,7 @@ const { openSubtitleConfigDialog } = useCreateDialog()
 const projectStore = useProjectStore()
 const subtitleList = ref<SubtitleConfig[]>([])
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   isGenerate?: boolean
 }>(), {
   isGenerate: false
@@ -46,7 +46,7 @@ const handleDelete = async (item: SubtitleConfig) => {
         type: 'warning'
       }
     )
-    
+
     await deleteSubtitleConfig(item.id)
     ElMessage.success('删除成功')
     await loadList()
@@ -55,10 +55,6 @@ const handleDelete = async (item: SubtitleConfig) => {
       ElMessage.error('删除失败')
     }
   }
-}
-
-const handleSelect = (item: SubtitleConfig) => {
-  projectStore.generateParams.subtitleId = item.id
 }
 
 const formatDate = (dateStr: string) => {
@@ -94,36 +90,47 @@ const getPreviewStyle = (configStr: string) => {
       <h2>字幕设置</h2>
       <el-button type="primary" @click="handleAdd">+ 新增字幕配置</el-button>
     </div>
-    
+
     <div class="list-container">
       <div v-if="subtitleList.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
         <p>暂无字幕配置</p>
         <el-button type="primary" @click="handleAdd">创建第一个配置</el-button>
       </div>
-      
-      <el-card v-else class="config-card" v-for="item in subtitleList" :key="item.id" :class="{ selected: projectStore.generateParams.subtitleId === item.id }">
-        <div class="card-radio" v-if="isGenerate">
-          <el-radio :model-value="projectStore.generateParams.subtitleId === item.id" @change="handleSelect(item)">
-            {{ item.name }}
-          </el-radio>
-        </div>
-        <div class="card-header">
-          <div class="config-name">{{ item.name }}</div>
-          <div class="config-date">{{ formatDate(item.createdAt) }}</div>
-        </div>
-        <div class="card-body">
-          <div class="config-preview">
-            <div class="preview-label">预览效果:</div>
-            <div class="preview-box" :style="getPreviewStyle(item.config)">
-              字幕预览文本
+
+      <div v-else class="card-grid">
+        <el-card
+          class="config-card"
+          v-for="item in subtitleList"
+          :key="item.id"
+          :class="{ selected: projectStore.generateParams.subtitleId === item.id }"
+        >
+          <template #header>
+            <div class="card-header" v-if="isGenerate">
+              <el-radio v-model="projectStore.generateParams.subtitleId" :value="item.id">
+                {{ item.name }}
+              </el-radio>
+            </div>
+            <div class="card-header" v-else>
+              <div class="config-name">{{ item.name }}</div>
+              <div class="config-date">{{ formatDate(item.createdAt) }}</div>
+            </div>
+          </template>
+          <div class="card-body">
+            <div class="config-preview">
+              <div class="preview-label">预览效果:</div>
+              <div class="preview-box" :style="getPreviewStyle(item.config)">
+                字幕预览文本
+              </div>
             </div>
           </div>
-        </div>
-        <div class="card-footer" v-if="!isGenerate">
-          <el-button type="danger" @click="handleDelete(item)">删除</el-button>
-        </div>
-      </el-card>
+          <template #footer>
+            <div class="card-footer">
+              <el-button type="danger" @click="handleDelete(item)">删除</el-button>
+            </div>
+          </template>
+        </el-card>
+      </div>
     </div>
   </div>
 </template>
@@ -138,7 +145,7 @@ const getPreviewStyle = (configStr: string) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  
+
   h2 {
     margin: 0;
     font-size: 18px;
@@ -150,13 +157,16 @@ const getPreviewStyle = (configStr: string) => {
 }
 
 .list-container {
+  width: 100%;
+}
+
+.card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 20px;
 }
 
 .empty-state {
-  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -164,12 +174,12 @@ const getPreviewStyle = (configStr: string) => {
   padding: 60px 20px;
   background: #fafafa;
   border-radius: 12px;
-  
+
   .empty-icon {
     font-size: 48px;
     margin-bottom: 16px;
   }
-  
+
   p {
     color: #909399;
     margin-bottom: 20px;
@@ -181,26 +191,15 @@ const getPreviewStyle = (configStr: string) => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.3s ease;
   border: 2px solid transparent;
-  
+
   &:hover {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     transform: translateY(-2px);
   }
-  
+
   &.selected {
     border-color: #409eff;
     background-color: #ecf5ff;
-  }
-}
-
-.card-radio {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  
-  :deep(.el-radio__label) {
-    font-weight: 600;
-    color: #303133;
   }
 }
 
@@ -208,16 +207,13 @@ const getPreviewStyle = (configStr: string) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
-  
+
   .config-name {
     font-size: 16px;
     font-weight: 600;
     color: #303133;
   }
-  
+
   .config-date {
     font-size: 12px;
     color: #909399;
@@ -234,7 +230,7 @@ const getPreviewStyle = (configStr: string) => {
     color: #909399;
     margin-bottom: 8px;
   }
-  
+
   .preview-box {
     padding: 12px 16px;
     border-radius: 8px;
@@ -251,9 +247,7 @@ const getPreviewStyle = (configStr: string) => {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
-  
+
   :deep(.el-button) {
     padding: 6px 16px;
   }

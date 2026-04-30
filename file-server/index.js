@@ -5,11 +5,20 @@ const path = require('path');
 const util = require('util');
 const { exec } = require('child_process');
 const mkdirp = require('mkdirp');
+const OSS = require('ali-oss');
 
 const execAsync = util.promisify(exec);
 
 const app = express();
 const port = 3001;
+
+// OSS 配置（从环境变量读取）
+const ossClient = new OSS({
+    region: process.env.OSS_REGION || 'oss-cn-hangzhou',
+    accessKeyId: process.env.OSS_ACCESS_KEY_ID || '',
+    accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET || '',
+    bucket: process.env.OSS_BUCKET || 'icarus1',
+});
 
 // 解析 JSON 请求体
 app.use(express.json());
@@ -77,12 +86,14 @@ app.post('/download-files', async (req, res) => {
 /**
  * 按行执行 shell 命令（危险：勿对公网暴露）。
  * POST /run-shell
- * Body: { script: string, cwd?: string }
+ * Body: { script: string, cwd?: string, project?: string, outputName?: string }
  * - script: UTF-8 多行命令经 Base64 编码后的字符串（与主服务 all_commands_joined 一致）
  * - cwd: 工作目录，缺省为 file-server 根目录（与 download-files 落盘相对路径一致）
+ * - project: 项目名称，用于定位生成的文件路径
+ * - outputName: 输出文件名（不含扩展名）
  */
 app.post('/run-shell', async (req, res) => {
-    const { script, cwd } = req.body || {};
+    const { script, cwd, project, outputName } = req.body || {};
     if (typeof script !== 'string' || !script.trim()) {
         return res.status(400).json({ error: '缺少 script（Base64 编码的多行 shell）' });
     }
@@ -121,11 +132,36 @@ app.post('/run-shell', async (req, res) => {
             );
             await execAsync(line, execOpts);
         }
+
+        // 如果提供了 project 和 outputName，尝试上传到 OSS
+        let ossUrl = null;
+        if (project && outputName) {
+            const localFilePath = path.join(__dirname, project, `${outputName}.mp4`);
+            
+            if (fs.existsSync(localFilePath)) {
+                try {
+                    const ossFileName = `generate/${outputName}.mp4`;
+                    console.log(`📤 开始上传到 OSS：${localFilePath} -> ${ossFileName}`);
+                    
+                    const result = await ossClient.put(ossFileName, localFilePath);
+                    ossUrl = `https://${ossClient.options.bucket}.${ossClient.options.region}.aliyuncs.com/${ossFileName}`;
+                    
+                    console.log(`✅ OSS 上传成功：${ossUrl}`);
+                } catch (ossErr) {
+                    console.error('❌ OSS 上传失败：', ossErr.message);
+                    // OSS 上传失败不影响整体流程，继续返回成功
+                }
+            } else {
+                console.warn(`⚠️ 生成的文件不存在：${localFilePath}`);
+            }
+        }
+
         return res.json({
             success: true,
             message: '执行成功',
             lineCount: lines.length,
             cwd: workDir,
+            ossUrl: ossUrl
         });
     } catch (err) {
         console.error('[run-shell] 失败:', err.message);

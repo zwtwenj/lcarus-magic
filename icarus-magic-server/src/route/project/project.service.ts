@@ -170,7 +170,7 @@ export class ProjectService {
 
   // 一键成片
   async generate(dto: OneClickGenerateDto, userId: number) {
-    const { projectId, materials } = dto;
+    const { projectId, materials, subtitleId } = dto;
     
     // 创建 video 类型任务（提前创建，便于追踪状态）
     let task = this.taskRepository.create({
@@ -178,12 +178,28 @@ export class ProjectService {
       type: 'video',
       status: TaskStatus.processing,
       create_time: new Date(),
-      req: JSON.stringify({ projectId, materials }),
+      req: JSON.stringify({ projectId, materials, subtitleId }),
       res: JSON.stringify({}),
     });
     task.user = { id: userId } as any;
     task = await this.taskRepository.save(task);
     
+    // 异步执行后续逻辑，不阻塞返回
+    this.executeGenerate(task.id, projectId, materials, subtitleId, userId);
+    
+    // 立即返回 taskId，前端通过轮询查询任务状态
+    return {
+      taskId: task.id
+    };
+  }
+
+  // 异步执行一键成片逻辑
+  private async executeGenerate(taskId: number, projectId: string, materials: string[], subtitleId: string | undefined, userId: number) {
+    const task = await this.taskRepository.findOne({ where: { id: taskId } });
+    if (!task) {
+      return;
+    }
+
     try {
       // 查找项目并提取 segments
       const project = await this.projectRepository.findOne({
@@ -265,27 +281,30 @@ export class ProjectService {
       // 执行 FFmpeg 命令
       const executeResult = await this.executeFfmpeg(ffmpegCommand);
       
+      // 提取 OSS URL
+      const ossUrl = executeResult.runShellResult?.ossUrl || null;
+      
       // 更新任务状态和结果
       task.status = TaskStatus.completed;
-      task.res = JSON.stringify(executeResult);
-      await this.taskRepository.save(task);
-
-      return {
+      task.res = JSON.stringify({
         projectId,
         materials,
         segments,
         params,
         cozeResult,
         executeResult,
-        taskId: task.id,
-        message: '功能开发中'
-      };
+        ossUrl: ossUrl,
+        message: ossUrl ? '一键成片完成' : '一键成片完成，但OSS上传失败'
+      });
+      await this.taskRepository.save(task);
+      console.log(`✅ 一键成片任务完成，taskId: ${task.id}, ossUrl: ${ossUrl}`);
+
     } catch (error) {
       // 更新任务状态为失败
       task.status = TaskStatus.failed;
       task.res = JSON.stringify({ error: error.message });
       await this.taskRepository.save(task);
-      throw error;
+      console.error('一键成片失败：', error);
     }
   }
 
@@ -338,6 +357,10 @@ export class ProjectService {
   async executeFfmpeg(ffmpegCommandResult: any) {
     const { params, ffmpegResult, downloadFiles } = ffmpegCommandResult;
     
+    // 提取项目名称（去掉 ./ 前缀）
+    const projectName = params.project.replace(/^\.\//, '');
+    const outputName = params.output.name;
+    
     // 调用 file-server 下载文件
     let downloadResult;
     try {
@@ -359,7 +382,9 @@ export class ProjectService {
       const command = commands[commands.length - 1]
       const scriptBase64 = Buffer.from(command).toString('base64');
       runShellResult = await axios.post('http://localhost:3001/run-shell', {
-        script: scriptBase64
+        script: scriptBase64,
+        project: projectName,
+        outputName: outputName
       });
       console.log('FFmpeg 命令执行成功：', runShellResult.data);
     } catch (error) {

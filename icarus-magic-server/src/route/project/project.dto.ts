@@ -53,6 +53,7 @@ export class ListDto {
  * 一键成片 DTO
  * @param projectId 项目ID
  * @param materials 素材URL列表
+ * @param subtitleId 字幕配置ID（可选，预留字段）
  */
 export class OneClickGenerateDto {
     @IsDefined()
@@ -63,6 +64,10 @@ export class OneClickGenerateDto {
     @IsDefined()
     @IsNotEmpty()
     materials: string[];
+
+    @IsOptional()
+    @IsString()
+    subtitleId?: string;
 }
 
 /**

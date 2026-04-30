@@ -8,7 +8,7 @@ import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, El
 
 const projectStore = useProjectStore()
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   isGenerate?: boolean
 }>(), {
   isGenerate: false

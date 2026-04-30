@@ -3,6 +3,12 @@ import { ref } from 'vue'
 import Text from './text.vue'
 import Sound from './sound.vue'
 import Subtitle from './subtitle.vue'
+import Materials from './materials.vue'
+import { useProjectStore } from '@/store/project.store'
+import { oneClickGenerate } from '@/api/project'
+import { ElMessage } from 'element-plus'
+
+const projectStore = useProjectStore()
 
 const steps = [
   { key: 'text', label: '文本' },
@@ -29,14 +35,38 @@ const prevStep = () => {
     currentStep.value--
   }
 }
+
+const handleGenerate = async () => {
+  if (projectStore.generateParams.selectedMaterialIds.length === 0) {
+    ElMessage.warning('请先选择素材')
+    return
+  }
+
+  try {
+    const materialIds = projectStore.generateParams.selectedMaterialIds.map(id => id.toString())
+    const result = await oneClickGenerate({
+      projectId: projectStore.projectId.toString(),
+      materials: materialIds,
+      subtitleId: projectStore.generateParams.subtitleId ? projectStore.generateParams.subtitleId.toString() : undefined
+    })
+    console.log('一键成片结果:', result)
+    ElMessage.success(result.message || '一键成片功能开发中')
+  } catch (error) {
+    console.error('一键成片失败:', error)
+    ElMessage.error('一键成片失败')
+  }
+}
+
+const isLastStep = () => currentStep.value === steps.length - 1
+const isMaterialsStep = () => currentStep.value === 3
 </script>
 
 <template>
   <div class="generate-page">
     <!-- 顶部步骤条 -->
     <div class="steps-bar">
-      <div 
-        v-for="(step, index) in steps" 
+      <div
+        v-for="(step, index) in steps"
         :key="step.key"
         class="step-tab"
         :class="{ active: currentStep === index }"
@@ -46,52 +76,29 @@ const prevStep = () => {
         <span class="step-label">{{ step.label }}</span>
       </div>
     </div>
-    
+
     <!-- 步骤内容区域 -->
     <div class="content-area">
       <!-- 文本步骤 -->
       <div v-if="currentStep === 0" class="step-content">
-        <!-- <div class="content-card">
-          <div class="content-icon">📝</div>
-          <h2>文本编辑</h2>
-          <p>在这里编辑视频的文案内容，支持分段编辑和时长设置。</p>
-          <el-button type="primary" size="large">编辑文本</el-button>
-        </div> -->
         <Text />
       </div>
-      
+
       <!-- 声音步骤 -->
       <div v-else-if="currentStep === 1" class="step-content">
-        <!-- <div class="content-card">
-          <div class="content-icon">🎙️</div>
-          <h2>声音合成</h2>
-          <p>选择语音类型、调整语速和音量，预览合成效果。</p>
-          <el-button type="primary" size="large">选择声音</el-button>
-        </div> -->
         <Sound />
       </div>
-      
+
       <!-- 字幕步骤 -->
       <div v-else-if="currentStep === 2" class="step-content">
-        <!-- <div class="content-card">
-          <div class="content-icon">📄</div>
-          <h2>字幕配置</h2>
-          <p>配置字幕样式，包括字体、颜色、大小等效果。</p>
-          <el-button type="primary" size="large">配置字幕</el-button>
-        </div> -->
         <Subtitle :isGenerate="true" />
       </div>
-      
+
       <!-- 素材步骤 -->
       <div v-else-if="currentStep === 3" class="step-content">
-        <div class="content-card">
-          <div class="content-icon">🎨</div>
-          <h2>素材管理</h2>
-          <p>添加背景图片、背景音乐等素材资源。</p>
-          <el-button type="primary" size="large">管理素材</el-button>
-        </div>
+        <Materials :isGenerate="true" />
       </div>
-      
+
       <!-- 成片步骤 -->
       <div v-else-if="currentStep === 4" class="step-content">
         <div class="content-card">
@@ -102,18 +109,18 @@ const prevStep = () => {
         </div>
       </div>
     </div>
-    
+
     <!-- 底部导航按钮 -->
     <div class="step-actions">
       <el-button size="large" :disabled="currentStep === 0" @click="prevStep">上一步</el-button>
-      <el-button size="large" :disabled="currentStep === steps.length - 1" type="primary" @click="nextStep">下一步</el-button>
+      <el-button v-if="isMaterialsStep()" size="large" type="primary" @click="handleGenerate">一键成片</el-button>
+      <el-button v-else size="large" :disabled="isLastStep()" type="primary" @click="nextStep">下一步</el-button>
     </div>
   </div>
 </template>
 
 <style scoped lang="less">
 .generate-page {
-  // height: calc(100vh - 80px);
   display: flex;
   flex-direction: column;
 }
@@ -136,25 +143,25 @@ const prevStep = () => {
   border-radius: 8px;
   transition: all 0.3s ease;
   flex:1;
-  
+
   &:hover {
     background: #f5f7fa;
   }
-  
+
   &.active {
     background: #ecf5ff;
-    
+
     .step-num {
       background: #409eff;
       color: #fff;
     }
-    
+
     .step-label {
       color: #409eff;
       font-weight: 600;
     }
   }
-  
+
   .step-num {
     width: 28px;
     height: 28px;
@@ -169,17 +176,11 @@ const prevStep = () => {
     margin-right: 8px;
     transition: all 0.3s ease;
   }
-  
+
   .step-label {
     font-size: 14px;
     color: #606266;
     transition: all 0.3s ease;
-  }
-  
-  .step-arrow {
-    margin-left: 16px;
-    color: #c0c4cc;
-    font-size: 16px;
   }
 }
 
@@ -202,7 +203,7 @@ const prevStep = () => {
   display: flex;
   justify-content: space-between;
   margin-top: 20px;
-  
+
   :deep(.el-button) {
     padding: 12px 32px;
     font-size: 16px;
@@ -215,26 +216,26 @@ const prevStep = () => {
   padding: 48px;
   background: #fafafa;
   border-radius: 16px;
-  
+
   .content-icon {
     font-size: 64px;
     margin-bottom: 20px;
   }
-  
+
   h2 {
     font-size: 24px;
     font-weight: 600;
     color: #303133;
     margin: 0 0 12px 0;
   }
-  
+
   p {
     font-size: 14px;
     color: #909399;
     margin: 0 0 24px 0;
     line-height: 1.6;
   }
-  
+
   :deep(.el-button) {
     padding: 12px 32px;
     font-size: 16px;
