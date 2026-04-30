@@ -284,17 +284,10 @@ export class ProjectService {
       // 提取 OSS URL
       const ossUrl = executeResult.runShellResult?.ossUrl || null;
       
-      // 更新任务状态和结果
+      // 更新任务状态和结果（只保存 ossUrl）
       task.status = TaskStatus.completed;
       task.res = JSON.stringify({
-        projectId,
-        materials,
-        segments,
-        params,
-        cozeResult,
-        executeResult,
-        ossUrl: ossUrl,
-        message: ossUrl ? '一键成片完成' : '一键成片完成，但OSS上传失败'
+        ossUrl: ossUrl
       });
       await this.taskRepository.save(task);
       console.log(`✅ 一键成片任务完成，taskId: ${task.id}, ossUrl: ${ossUrl}`);

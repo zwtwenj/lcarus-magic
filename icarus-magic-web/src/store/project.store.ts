@@ -58,7 +58,8 @@ export const useProjectStore = defineStore('project', {
     generateParams: {
       subtitleId: null as number | null,
       selectedMaterialIds: [] as number[]
-    }
+    },
+    generateVideo: ''
   }),
   actions: {
     async fetchProjectDetail(projectId: number) {

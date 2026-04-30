@@ -88,12 +88,7 @@ export interface OneClickGenerateParams {
 
 // 一键成片响应接口
 export interface OneClickGenerateResponse {
-  projectId: string;
-  materials: string[];
-  segments: any[];
-  params: any;
-  cozeResult: any;
-  message: string;
+  taskId: number;
 }
 
 // 一键成片

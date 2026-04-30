@@ -4,8 +4,10 @@ import Text from './text.vue'
 import Sound from './sound.vue'
 import Subtitle from './subtitle.vue'
 import Materials from './materials.vue'
+import GenerateVideo from './generateVideo.vue'
 import { useProjectStore } from '@/store/project.store'
 import { oneClickGenerate } from '@/api/project'
+import { getTaskStatus } from '@/api/task'
 import { ElMessage } from 'element-plus'
 
 const projectStore = useProjectStore()
@@ -19,6 +21,9 @@ const steps = [
 ]
 
 const currentStep = ref(0)
+const isGenerating = ref(false)
+const generateTaskId = ref<number | null>(null)
+const videoUrl = ref<string | null>(null)
 
 const setStep = (index: number) => {
   currentStep.value = index
@@ -36,9 +41,46 @@ const prevStep = () => {
   }
 }
 
+// 轮询查询任务状态
+const pollTask = async () => {
+  if (!generateTaskId.value) return
+  
+  try {
+    const statusResponse = await getTaskStatus(generateTaskId.value)
+    
+    if (statusResponse.status === 'completed') {
+      // res 可能是字符串或对象，需要处理
+      const res = typeof statusResponse.res === 'string' ? JSON.parse(statusResponse.res) : statusResponse.res
+      projectStore.generateVideo = res.ossUrl || ''
+      ElMessage.success('视频生成成功')
+      isGenerating.value = false
+      generateTaskId.value = null
+      // 跳转到成片步骤
+      currentStep.value = 4
+    } else if (statusResponse.status === 'failed') {
+      ElMessage.error('视频生成失败')
+      isGenerating.value = false
+      generateTaskId.value = null
+    } else {
+      // 继续轮询
+      setTimeout(pollTask, 2000)
+    }
+  } catch (error) {
+    console.error('查询任务状态失败:', error)
+    ElMessage.error('查询任务状态失败')
+    isGenerating.value = false
+    generateTaskId.value = null
+  }
+}
+
 const handleGenerate = async () => {
   if (projectStore.generateParams.selectedMaterialIds.length === 0) {
     ElMessage.warning('请先选择素材')
+    return
+  }
+
+  if (isGenerating.value) {
+    ElMessage.warning('正在生成中，请稍候')
     return
   }
 
@@ -49,8 +91,15 @@ const handleGenerate = async () => {
       materials: materialIds,
       subtitleId: projectStore.generateParams.subtitleId ? projectStore.generateParams.subtitleId.toString() : undefined
     })
-    console.log('一键成片结果:', result)
-    ElMessage.success(result.message || '一键成片功能开发中')
+    
+    if (result.taskId) {
+      isGenerating.value = true
+      generateTaskId.value = result.taskId
+      videoUrl.value = null
+      ElMessage.info('视频生成中，请稍候...')
+      // 开始轮询
+      setTimeout(pollTask, 2000)
+    }
   } catch (error) {
     console.error('一键成片失败:', error)
     ElMessage.error('一键成片失败')
@@ -101,19 +150,17 @@ const isMaterialsStep = () => currentStep.value === 3
 
       <!-- 成片步骤 -->
       <div v-else-if="currentStep === 4" class="step-content">
-        <div class="content-card">
-          <div class="content-icon">🎬</div>
-          <h2>生成成片</h2>
-          <p>预览效果并生成最终视频文件。</p>
-          <el-button type="primary" size="large">开始生成</el-button>
-        </div>
+        <GenerateVideo />
       </div>
     </div>
 
     <!-- 底部导航按钮 -->
     <div class="step-actions">
       <el-button size="large" :disabled="currentStep === 0" @click="prevStep">上一步</el-button>
-      <el-button v-if="isMaterialsStep()" size="large" type="primary" @click="handleGenerate">一键成片</el-button>
+      <el-button v-if="isMaterialsStep()" size="large" type="primary" :loading="isGenerating" @click="handleGenerate">
+        <span v-if="isGenerating">生成中...</span>
+        <span v-else>一键成片</span>
+      </el-button>
       <el-button v-else size="large" :disabled="isLastStep()" type="primary" @click="nextStep">下一步</el-button>
     </div>
   </div>
