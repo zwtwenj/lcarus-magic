@@ -171,6 +171,9 @@ export class ProjectService {
   // 一键成片
   async generate(dto: OneClickGenerateDto, userId: number) {
     const { projectId, materials, subtitleId } = dto;
+
+    // 生成字幕文件并上传到OSS
+    const { assContent, ossUrl } = await this.generateSubtitle(parseInt(projectId), userId);
     
     // 创建 video 类型任务（提前创建，便于追踪状态）
     let task = this.taskRepository.create({
@@ -255,7 +258,8 @@ export class ProjectService {
         durationSeconds: v.durationSeconds
       }));
       
-      console.log('调用 Coze 素材匹配工作流，参数：', { voiceData, imageData });
+      console.log('调用 Coze 素材匹配工作流，参数：', JSON.stringify(voiceData));
+      console.log('调用 Coze 素材匹配工作流，参数：', JSON.stringify(imageData));
       let cozeResult;
       try {
         cozeResult = await callCozeMaterialMatch(voiceData, imageData, this.configService);
@@ -274,16 +278,20 @@ export class ProjectService {
         console.error('解析 matchedData 失败：', error);
         throw new Error('解析 Coze 返回数据失败');
       }
-      
-      // 生成ffmpeg命令
-      const ffmpegCommand = await this.ffmpegCommand(matchedData);
-      
+
+      // 生成字幕文件并上传到 OSS
+      const { ossUrl: subtitleOssUrl } = await this.generateSubtitle(parseInt(projectId), userId);
+      console.log(`✅ 字幕生成并上传成功：${subtitleOssUrl}`);
+
+      // 生成ffmpeg命令（传入字幕URL）
+      const ffmpegCommand = await this.ffmpegCommand(matchedData, subtitleOssUrl);
+
       // 执行 FFmpeg 命令
       const executeResult = await this.executeFfmpeg(ffmpegCommand);
-      
+
       // 提取 OSS URL
       const ossUrl = executeResult.runShellResult?.ossUrl || null;
-      
+
       // 更新任务状态和结果（只保存 ossUrl）
       task.status = TaskStatus.completed;
       task.res = JSON.stringify({
@@ -302,13 +310,13 @@ export class ProjectService {
   }
 
   // 生成ffmpeg命令
-  async ffmpegCommand(data: any) {
+  async ffmpegCommand(data: any, subtitleUrl?: string) {
     // 输入数据示例：
     // {"matched_data":[{"index":1,"text":"近日有网友爆料...","voiceId":"longhouge_v3","ossUrl":"http://...","format":"mp3","durationSeconds":9.326,"matched_image_url":"http://...","matched_image_tip":[...]}],"run_id":"b4b79f45-5457-42c3-814c-489092a724fa"}
-    
+
     const projectName = `project_${uuidv4()}`;
     const timestamp = dayjs().format('YYYYMMDDHHmmss');
-    
+
     const timeline = (data.matched_data || []).map((item: any) => ({
       index: item.index,
       text: item.text,
@@ -316,17 +324,18 @@ export class ProjectService {
       duration: item.durationSeconds,
       matched_image_url: item.matched_image_url
     }));
-    
-    // 收集所有需要下载的文件URL并去重
+
+    // 收集所有需要下载的文件URL并去重（包括字幕URL）
     const downloadFiles = [...new Set([
       ...timeline.map(t => t.voice_url).filter(Boolean),
-      ...timeline.map(t => t.matched_image_url).filter(Boolean)
+      ...timeline.map(t => t.matched_image_url).filter(Boolean),
+      ...(subtitleUrl ? [subtitleUrl] : [])
     ])];
-    
+
     const params = {
       project: `./${projectName}_${timestamp}`,
       timeline,
-      subtitle: null,
+      subtitle: subtitleUrl || null,
       output: {
         name: `final_video_${timestamp}`,
         width: 375,
@@ -338,7 +347,7 @@ export class ProjectService {
     console.log('调用 Coze FFmpeg 命令生成工作流，参数：', params);
     const ffmpegResult = await callCozeFfmpegCommand(params, this.configService);
     console.log('FFmpeg 命令生成成功：', ffmpegResult);
-    
+
     return {
       params,
       ffmpegResult,
@@ -391,173 +400,154 @@ export class ProjectService {
       runShellResult: runShellResult.data
     };
   }
+
+  // 生成字幕文件（.ass格式）并上传到OSS
+  async generateSubtitle(projectId: number, userId: number, subtitleConfig?: any): Promise<{ assContent: string; ossUrl: string | undefined }> {
+    // 1. 根据 projectId 获取 segments
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, user: { id: userId } }
+    });
+    
+    if (!project) {
+      throw new NotFoundException('项目不存在或无权限访问');
+    }
+    
+    const segments = project.segments || [];
+    
+    if (segments.length === 0) {
+      throw new BadRequestException('项目没有可用的语音段落');
+    }
+    
+    // 2. 组装 .ass 字符串
+    const assContent = this.buildAssContent(segments, subtitleConfig);
+    
+    // 3. 上传到 OSS
+    const ossUrl = await this.uploadSubtitleToOSS(assContent, projectId);
+    
+    return {
+      assContent,
+      ossUrl
+    };
+  }
+
+  // 上传字幕文件到 OSS
+  private async uploadSubtitleToOSS(assContent: string, projectId: number): Promise<string | undefined> {
+    try {
+      // 创建 OSS 客户端实例
+      const OSSClient = require('../../lib/oss').default;
+      const ossClient = new OSSClient(this.configService);
+      
+      // 生成文件名：subtitle/{projectId}_{timestamp}.ass
+      const timestamp = Date.now();
+      const ossFileName = `subtitle/${projectId}_${timestamp}.ass`;
+      
+      // 将字符串转换为 Buffer
+      const buffer = Buffer.from(assContent, 'utf-8');
+      
+      // 上传到 OSS
+      const url = await ossClient.uploadBufferAndGetUrl(buffer, ossFileName);
+      
+      console.log(`✅ 字幕上传 OSS 成功：${url}`);
+      return url;
+    } catch (error) {
+      console.error('❌ 字幕上传 OSS 失败:', error);
+      return undefined;
+    }
+  }
+
+  // 构建 .ass 文件内容
+  private buildAssContent(segments: Segment[], config?: any): string {
+    // 默认配置
+    const defaultConfig = {
+      fontname: 'Microsoft YaHei',
+      fontsize: '24',
+      color: '&H00FFFFFF',
+      outline_color: '&H00000000',
+      back_color: '&H80000000',
+      marginL: '10',
+      marginR: '10',
+      marginV: '10'
+    };
+    
+    const cfg = { ...defaultConfig, ...config };
+    
+    let ass = `[Script Info]
+Title: Generated Subtitle
+ScriptType: v4.00+
+PlayResX: 375
+PlayResY: 667
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,${cfg.fontname},${cfg.fontsize},${cfg.color},${cfg.color},${cfg.outline_color},${cfg.back_color},0,0,0,0,100,100,0,0,1,2,0,2,${cfg.marginL},${cfg.marginR},${cfg.marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+    
+    // 生成 Dialogue 行
+    let currentTime = 0;
+    segments.forEach((segment, index) => {
+      const text = segment.text || '';
+      const duration = segment.duration || 3; // 默认3秒
+      
+      // 断句处理
+      const sentences = this.splitText(text);
+      
+      if (sentences.length === 0) {
+        return;
+      }
+      
+      // 按照句子长度均分时间
+      const totalLength = sentences.reduce((sum, s) => sum + s.length, 0);
+      
+      sentences.forEach(sentence => {
+        // 根据句子长度计算该句的显示时间
+        const sentenceDuration = totalLength > 0 ? (sentence.length / totalLength) * duration : duration / sentences.length;
+        
+        const startTime = this.formatTime(currentTime);
+        const endTime = this.formatTime(currentTime + sentenceDuration);
+        
+        ass += `Dialogue: 0,${startTime},${endTime},Default,,0,0,0,,${sentence}\n`;
+        
+        currentTime += sentenceDuration;
+      });
+    });
+    
+    return ass;
+  }
+
+  // 文本断句处理
+  private splitText(text: string): string[] {
+    if (!text) return [];
+    
+    // 匹配中文标点符号进行断句：，。！？；：、。！？""''（）
+    // 使用非捕获组来匹配但不包含标点符号
+    const regex = /([^，。！？；：、""''（）\n]+)/g;
+    const matches = text.match(regex);
+    
+    if (!matches) return [];
+    
+    // 过滤空字符串并去除首尾空格
+    return matches.map(s => s.trim()).filter(s => s.length > 0);
+  }
+
+  // 清理文本中的控制字符（用于 JSON 序列化）
+  private cleanText(text: string): string {
+    if (!text) return '';
+    
+    // 移除所有控制字符（除了常见的空格）
+    // 控制字符的 Unicode 范围：\u0000-\u001F 和 \u007F-\u009F
+    return text.replace(/[\x00-\x1F\x7F-\x9F]/g, '').trim();
+  }
+
+  // 格式化时间为 ASS 格式 (0:00:00.00)
+  private formatTime(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 100);
+    
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+  }
 }
-
-// {
-//     "projectId": "7",
-//     "materials": [
-//         "18",
-//         "19",
-//         "20",
-//         "21",
-//         "22"
-//     ],
-//     "segments": [
-//         {
-//             "sort": 1,
-//             "text": "近日有网友爆料，快手研发线发布通知，收紧了对第三方编程软件的使用权限。",
-//             "sound": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3",
-//             "soundId": 76,
-//             "duration": 9.326
-//         },
-//         {
-//             "sort": 2,
-//             "text": "不少习惯用AI辅助开发的员工陷入困境：原本计划用1小时AI生成代码，剩余时间可灵活安排，如今只能手动查找代码模板、翻阅API文档，能否按时完成工作成未知数。有员工调侃，没了Cursor，连Hello World都写不顺手。",
-//             "sound": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3",
-//             "soundId": 77,
-//             "duration": 27.69
-//         }
-//     ],
-//     "params": {
-//         "voice_data": [
-//             {
-//                 "index": 1,
-//                 "text": "近日有网友爆料，快手研发线发布通知，收紧了对第三方编程软件的使用权限。",
-//                 "ossUrl": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3",
-//                 "format": "mp3",
-//                 "durationSeconds": 9.326
-//             },
-//             {
-//                 "index": 2,
-//                 "text": "不少习惯用AI辅助开发的员工陷入困境：原本计划用1小时AI生成代码，剩余时间可灵活安排，如今只能手动查找代码模板、翻阅API文档，能否按时完成工作成未知数。有员工调侃，没了Cursor，连Hello World都写不顺手。",
-//                 "ossUrl": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3",
-//                 "format": "mp3",
-//                 "durationSeconds": 27.69
-//             }
-//         ],
-//         "image_data": [
-//             {
-//                 "material_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/e8d884752ddcb00871d10026f47f7090.jpg-d9802f9b-13be-41e2-bb76-975f4b4ccee2",
-//                 "tip": [
-//                     "AI code generation",
-//                     "web application development",
-//                     "Vibe Code Bench",
-//                     "end-to-end evaluation",
-//                     "natural language programming",
-//                     "autonomous browser agent",
-//                     "software engineering benchmark"
-//                 ]
-//             },
-//             {
-//                 "material_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/5f2e6b100c794ada7ec2854b5b686c14.jpg-2d15b134-e8b2-4fa1-9192-819cf130f1de",
-//                 "tip": [
-//                     "代码库结构",
-//                     "开发者指南",
-//                     "Intro.md",
-//                     "项目架构",
-//                     "学习路径",
-//                     "GitHub PR",
-//                     "仓库介绍"
-//                 ]
-//             },
-//             {
-//                 "material_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/8fb1a76156adf997c22ec96b22696aeb.jpg-69dba10e-266f-4932-a584-ec59b8435277",
-//                 "tip": [
-//                     "SpaceX",
-//                     "Cursor AI",
-//                     "人工智能",
-//                     "编程助手",
-//                     "超级计算机",
-//                     "收购",
-//                     "合作"
-//                 ]
-//             },
-//             {
-//                 "material_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/ea7be92a0e10926775eb89ad2856b50b.jpg-ceb61364-d4a3-4b8b-8658-9f9d3e681ab7",
-//                 "tip": [
-//                     "Cursor",
-//                     "三维几何",
-//                     "白色标志",
-//                     "黑色背景",
-//                     "立方体图标",
-//                     "现代设计",
-//                     "技术品牌"
-//                 ]
-//             },
-//             {
-//                 "material_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/6020baf2e2d9cb48b8b55f74e277435c.jpeg-bbc5feb6-ab24-4343-a634-8871b5f52ea9",
-//                 "tip": [
-//                     "字节跳动",
-//                     "ByteDance",
-//                     "办公大楼",
-//                     "现代建筑",
-//                     "蓝天绿地",
-//                     "公司总部",
-//                     "企业标志"
-//                 ]
-//             }
-//         ]
-//     },
-//     "cozeResult": {
-//         "status": 200,
-//         "contentType": "application/json",
-//         "bodyText": "{\"matched_data\":[{\"index\":1,\"text\":\"近日有网友爆料，快手研发线发布通知，收紧了对第三方编程软件的使用权限。\",\"voiceId\":\"longhouge_v3\",\"ossUrl\":\"http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3\",\"format\":\"mp3\",\"durationSeconds\":9.326,\"matched_image_url\":\"http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/8fb1a76156adf997c22ec96b22696aeb.jpg-69dba10e-266f-4932-a584-ec59b8435277\",\"matched_image_tip\":[\"SpaceX\",\"Cursor AI\",\"人工智能\",\"编程助手\",\"超级计算机\",\"收购\",\"合作\"]},{\"index\":2,\"text\":\"不少习惯用AI辅助开发的员工陷入困境：原本计划用1小时AI生成代码，剩余时间可灵活安排，如今只能手动查找代码模板、翻阅API文档，能否按时完成工作成未知数。有员工调侃，没了Cursor，连Hello World都写不顺手。\",\"voiceId\":\"longhouge_v3\",\"ossUrl\":\"http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3\",\"format\":\"mp3\",\"durationSeconds\":27.69,\"matched_image_url\":\"http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/ea7be92a0e10926775eb89ad2856b50b.jpg-ceb61364-d4a3-4b8b-8658-9f9d3e681ab7\",\"matched_image_tip\":[\"Cursor\",\"三维几何\",\"白色标志\",\"黑色背景\",\"立方体图标\",\"现代设计\",\"技术品牌\"]}],\"run_id\":\"836ce63f-de4e-42e5-afe4-70b4ecff68c8\"}"
-//     },
-//     "ffmpegCommand": {
-//         "params": {
-//             "project": "./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604",
-//             "timeline": [
-//                 {
-//                     "index": 1,
-//                     "text": "近日有网友爆料，快手研发线发布通知，收紧了对第三方编程软件的使用权限。",
-//                     "voice_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3",
-//                     "duration": 9.326,
-//                     "matched_image_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/8fb1a76156adf997c22ec96b22696aeb.jpg-69dba10e-266f-4932-a584-ec59b8435277"
-//                 },
-//                 {
-//                     "index": 2,
-//                     "text": "不少习惯用AI辅助开发的员工陷入困境：原本计划用1小时AI生成代码，剩余时间可灵活安排，如今只能手动查找代码模板、翻阅API文档，能否按时完成工作成未知数。有员工调侃，没了Cursor，连Hello World都写不顺手。",
-//                     "voice_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3",
-//                     "duration": 27.69,
-//                     "matched_image_url": "http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/ea7be92a0e10926775eb89ad2856b50b.jpg-ceb61364-d4a3-4b8b-8658-9f9d3e681ab7"
-//                 }
-//             ],
-//             "subtitle": null,
-//             "output": {
-//                 "name": "final_video_20260426004604",
-//                 "width": 375,
-//                 "height": 667
-//             }
-//         },
-//         "ffmpegResult": {
-//             "status": 200,
-//             "contentType": "application/json",
-//             "bodyText": "{\"all_commands\":[\"ffmpeg -y -loop 1 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/8fb1a76156adf997c22ec96b22696aeb.jpg-69dba10e-266f-4932-a584-ec59b8435277 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3 -vf \\\"scale=375:667:force_original_aspect_ratio=increase,crop=375:667\\\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t 9.326 -shortest ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/segment_1.mp4\",\"ffmpeg -y -loop 1 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/ea7be92a0e10926775eb89ad2856b50b.jpg-ceb61364-d4a3-4b8b-8658-9f9d3e681ab7 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3 -vf \\\"scale=375:667:force_original_aspect_ratio=increase,crop=375:667\\\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t 27.69 -shortest ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/segment_2.mp4\",\"rm -f ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt && echo file segment_1.mp4 >> ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt && echo file segment_2.mp4 >> ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt\",\"ffmpeg -y -f concat -safe 0 -i ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt -c copy ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/_temp_concat.mp4\",\"mv ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/_temp_concat.mp4 ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/final_video_20260426004604.mp4\",\"ffmpeg -y -loop 1 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/8fb1a76156adf997c22ec96b22696aeb.jpg-69dba10e-266f-4932-a584-ec59b8435277 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856661346-1fdh22dwc.mp3 -vf \\\"scale=375:667:force_original_aspect_ratio=increase,crop=375:667\\\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t 9.326 -shortest ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/segment_1.mp4 && ffmpeg -y -loop 1 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/material/ea7be92a0e10926775eb89ad2856b50b.jpg-ceb61364-d4a3-4b8b-8658-9f9d3e681ab7 -i http://icarus1.oss-cn-hangzhou.aliyuncs.com/sound/1776856671217-bh4ps6n4r.mp3 -vf \\\"scale=375:667:force_original_aspect_ratio=increase,crop=375:667\\\" -c:v libx264 -tune stillimage -c:a aac -b:a 192k -pix_fmt yuv420p -t 27.69 -shortest ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/segment_2.mp4 && rm -f ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt && echo file segment_1.mp4 >> ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt && echo file segment_2.mp4 >> ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt && ffmpeg -y -f concat -safe 0 -i ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/filelist.txt -c copy ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/_temp_concat.mp4 && mv ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/_temp_concat.mp4 ./project_c0747fb5-6a98-4378-be9e-8948428e2c78_20260426004604/final_video_20260426004604.mp4\"],\"run_id\":\"10e3ee7b-3a9e-4681-9ea5-c06be88e4338\"}"
-//         }
-//     },
-//     "message": "功能开发中"
-// }
-
-// {
-//     "project": "./download-1774859212508",
-//     "timeline": [
-//         {
-//             "index": 0,
-//             "text": "2026年3月19日",
-//             "voice_url": "./download-1774859212508/synth-1774859142511-4b19aa4c1e81.mp3",
-//             "duration": 2.22,
-//             "matched_image_url": "./download-1774859212508/1774857857460-321658397.jpg"
-//         }
-//     ],
-//     "subtitle": {
-//         "url": "./download-1774859212508/text.srt",
-//         "bottom": 300,
-//         "align": "center",
-//         "fontsize": 24
-//     },
-//     "output": {
-//         "name": "final_video",
-//         "width": 375,
-//         "height": 667
-//     }
-// }

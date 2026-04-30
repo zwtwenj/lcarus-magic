@@ -1,0 +1,24 @@
+[Script Info]
+Title: Generated Subtitle
+ScriptType: v4.00+
+PlayResX: 375
+PlayResY: 667
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Microsoft YaHei,24,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,2,0,2,10,10,10,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:02.04,Default,,0,0,0,,近日有网友爆料
+Dialogue: 0,0:00:02.04,0:00:04.66,Default,,0,0,0,,快手研发线发布通知
+Dialogue: 0,0:00:04.66,0:00:09.32,Default,,0,0,0,,收紧了对第三方编程软件的使用权限
+Dialogue: 0,0:00:09.32,0:00:14.21,Default,,0,0,0,,不少习惯用AI辅助开发的员工陷入困境
+Dialogue: 0,0:00:14.21,0:00:18.01,Default,,0,0,0,,原本计划用1小时AI生成代码
+Dialogue: 0,0:00:18.01,0:00:20.45,Default,,0,0,0,,剩余时间可灵活安排
+Dialogue: 0,0:00:20.45,0:00:23.71,Default,,0,0,0,,如今只能手动查找代码模板
+Dialogue: 0,0:00:23.71,0:00:25.61,Default,,0,0,0,,翻阅API文档
+Dialogue: 0,0:00:25.61,0:00:28.87,Default,,0,0,0,,能否按时完成工作成未知数
+Dialogue: 0,0:00:28.87,0:00:30.22,Default,,0,0,0,,有员工调侃
+Dialogue: 0,0:00:30.22,0:00:32.40,Default,,0,0,0,,没了Cursor
+Dialogue: 0,0:00:32.40,0:00:37.01,Default,,0,0,0,,连Hello World都写不顺手
