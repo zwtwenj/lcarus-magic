@@ -56,7 +56,8 @@ export const useProjectStore = defineStore('project', {
     currentMenu: 'overview',
     // 生成参数
     generateParams: {
-      subtitleId: null as number | null,
+      subtitleType: 'auto',
+      subtitleId: null as string | null,
       selectedMaterialIds: [] as number[]
     },
     generateVideo: ''

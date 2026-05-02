@@ -68,6 +68,10 @@ export class OneClickGenerateDto {
     @IsOptional()
     @IsString()
     subtitleId?: string;
+
+    @IsOptional()
+    @IsString()
+    subtitleType?: 'auto' | 'custom';
 }
 
 /**

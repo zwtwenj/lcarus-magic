@@ -6,6 +6,7 @@ import { Project, Segment } from './project.entity';
 import { User } from '../user/user.entity';
 import { Material } from '../material/material.entity';
 import { Task } from '../task/task.entity';
+import { Subtitle } from '../subtitle/subtitle.entity';
 import { TaskStatus } from '../task/task.dto';
 import { CreateProjectDto, ListDto, SaveTextDto, OneClickGenerateDto } from './project.dto';
 import { callCozeMaterialMatch, callCozeFfmpegCommand } from '../../model/coze';
@@ -24,6 +25,8 @@ export class ProjectService {
     private readonly materialRepository: Repository<Material>,
     @InjectRepository(Task)
     private readonly taskRepository: Repository<Task>,
+    @InjectRepository(Subtitle)
+    private readonly subtitleRepository: Repository<Subtitle>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -170,25 +173,22 @@ export class ProjectService {
 
   // 一键成片
   async generate(dto: OneClickGenerateDto, userId: number) {
-    const { projectId, materials, subtitleId } = dto;
+    const { projectId, materials, subtitleId, subtitleType } = dto;
 
-    // 生成字幕文件并上传到OSS
-    const { assContent, ossUrl } = await this.generateSubtitle(parseInt(projectId), userId);
-    
     // 创建 video 类型任务（提前创建，便于追踪状态）
     let task = this.taskRepository.create({
       title: `一键成片`,
       type: 'video',
       status: TaskStatus.processing,
       create_time: new Date(),
-      req: JSON.stringify({ projectId, materials, subtitleId }),
+      req: JSON.stringify({ projectId, materials, subtitleId, subtitleType }),
       res: JSON.stringify({}),
     });
     task.user = { id: userId } as any;
     task = await this.taskRepository.save(task);
     
     // 异步执行后续逻辑，不阻塞返回
-    this.executeGenerate(task.id, projectId, materials, subtitleId, userId);
+    this.executeGenerate(task.id, projectId, materials, subtitleId, subtitleType, userId);
     
     // 立即返回 taskId，前端通过轮询查询任务状态
     return {
@@ -197,7 +197,7 @@ export class ProjectService {
   }
 
   // 异步执行一键成片逻辑
-  private async executeGenerate(taskId: number, projectId: string, materials: string[], subtitleId: string | undefined, userId: number) {
+  private async executeGenerate(taskId: number, projectId: string, materials: string[], subtitleId: string | undefined, subtitleType: 'auto' | 'custom' | undefined, userId: number) {
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
     if (!task) {
       return;
@@ -279,9 +279,27 @@ export class ProjectService {
         throw new Error('解析 Coze 返回数据失败');
       }
 
-      // 生成字幕文件并上传到 OSS
-      const { ossUrl: subtitleOssUrl } = await this.generateSubtitle(parseInt(projectId), userId);
-      console.log(`✅ 字幕生成并上传成功：${subtitleOssUrl}`);
+      // 处理字幕：根据 subtitleType 决定是自动生成还是使用自定义字幕
+      let subtitleOssUrl: string;
+      if (subtitleType === 'custom' && subtitleId) {
+        // 自定义字幕：从数据库获取
+        const subtitle = await this.subtitleRepository.findOne({
+          where: { id: parseInt(subtitleId), projectId: parseInt(projectId), type: 'custom' }
+        });
+        if (!subtitle) {
+          throw new NotFoundException('自定义字幕不存在');
+        }
+        subtitleOssUrl = subtitle.url;
+        console.log(`✅ 使用自定义字幕：${subtitleOssUrl}`);
+      } else {
+        // 自动生成字幕（默认行为）
+        const { ossUrl } = await this.generateSubtitle(parseInt(projectId), userId);
+        if (!ossUrl) {
+          throw new Error('字幕生成失败');
+        }
+        subtitleOssUrl = ossUrl;
+        console.log(`✅ 字幕生成并上传成功：${subtitleOssUrl}`);
+      }
 
       // 生成ffmpeg命令（传入字幕URL）
       const ffmpegCommand = await this.ffmpegCommand(matchedData, subtitleOssUrl);
