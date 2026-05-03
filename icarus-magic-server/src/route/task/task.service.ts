@@ -63,29 +63,79 @@ export class TaskService {
     type?: string,
     status?: TaskStatus,
   ) {
-    const query = this.taskRepository.createQueryBuilder('task');
+    // 首先查询所有父任务（parentid 为 null 的任务）
+    const parentQuery = this.taskRepository.createQueryBuilder('task');
 
     if (userId) {
-      query.where('task.user.id = :userId', { userId });
+      parentQuery.where('task.user.id = :userId', { userId });
+    } else {
+      parentQuery.where('task.parent IS NULL');
     }
 
+    // 确保只查询父任务或独立任务（parent 为 null）
+    parentQuery.andWhere('task.parent IS NULL');
+
     if (type) {
-      query.andWhere('task.type = :type', { type });
+      parentQuery.andWhere('task.type = :type', { type });
     }
 
     if (status) {
-      query.andWhere('task.status = :status', { status });
+      parentQuery.andWhere('task.status = :status', { status });
     }
 
-    query.orderBy('task.create_time', 'DESC');
+    parentQuery.orderBy('task.create_time', 'DESC');
 
-    const [tasks, total] = await query
+    const [parentTasks, total] = await parentQuery
       .skip((page - 1) * pageSize)
       .take(pageSize)
       .getManyAndCount();
 
+    // 循环获取每个父任务的子任务
+    const resultTasks = await Promise.all(
+      parentTasks.map(async (parentTask) => {
+        // 查询当前父任务的子任务
+        const childConditions: any = {
+          parent: { id: parentTask.id },
+        };
+        
+        if (userId) {
+          childConditions.user = { id: userId };
+        }
+
+        const children = await this.taskRepository.find({
+          where: childConditions,
+          order: { create_time: 'ASC' },
+        });
+
+        // 转换子任务格式
+        const childResults = children.map(child => ({
+          id: child.id,
+          title: child.title,
+          type: child.type,
+          status: child.status,
+          create_time: child.create_time,
+          req: child.req,
+          res: child.res,
+          parentid: parentTask.id,
+        }));
+
+        // 返回父任务及其子任务
+        return {
+          id: parentTask.id,
+          title: parentTask.title,
+          type: parentTask.type,
+          status: parentTask.status,
+          create_time: parentTask.create_time,
+          req: parentTask.req,
+          res: parentTask.res,
+          parentid: null,
+          children: childResults,
+        };
+      })
+    );
+
     return {
-      tasks,
+      tasks: resultTasks,
       total,
       page,
       pageSize,

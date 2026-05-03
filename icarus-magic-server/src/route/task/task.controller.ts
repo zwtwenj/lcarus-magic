@@ -2,9 +2,6 @@ import { Controller, Post, Get, Put, Delete, Body, UseGuards, Req, NotFoundExcep
 import { TaskService } from './task.service';
 import { TaskStatus, TaskDto } from './task.dto';
 import { JwtAuthGuard } from '../../transform/jwt-auth.guard';
-// import { AuthGuard } from '@/guard/auth.guard';
-// import { User } from '@/decorator/user.decorator';
-// import { Public } from '@/transform/public.decorator';
 
 @Controller('task')
 export class TaskController {
@@ -12,36 +9,31 @@ export class TaskController {
 
   /**
    * 获取任务列表
-   * @param query 查询参数
-   * @param user 当前用户
+   * @param body 查询参数
+   * @param req 当前用户
    * @returns 任务列表
    */
-  // @UseGuards(AuthGuard)
-  // @Get()
-  // async getTasks(
-  //   @Query() query: {
-  //     page?: number;
-  //     page_size?: number;
-  //     type?: string;
-  //     status?: TaskStatus;
-  //   },
-  //   @User() user: any,
-  // ) {
-  //   const { page = 1, page_size = 10, type, status } = query;
-  //   const result = await this.taskService.getTasks(
-  //     user.id,
-  //     page,
-  //     page_size,
-  //     type,
-  //     status,
-  //   );
-
-  //   return {
-  //     code: 100,
-  //     message: '获取任务列表成功',
-  //     data: result,
-  //   };
-  // }
+  @UseGuards(JwtAuthGuard)
+  @Post('/list')
+  async getTasks(@Body() body: TaskDto, @Req() req: any) {
+    const { page, page_size, title, type, status } = body;
+    const userId = parseInt(req.user.userId);
+    
+    const result = await this.taskService.getTasks(
+      userId,
+      page,
+      page_size,
+      type,
+      status
+    );
+    
+    return {
+      list: result.tasks,
+      total: result.total,
+      page: result.page,
+      page_size: result.pageSize,
+    };
+  }
 
   /**
    * 获取任务详情

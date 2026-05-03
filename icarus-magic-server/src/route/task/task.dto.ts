@@ -19,7 +19,7 @@ export enum TaskStatus {
  * @param status 任务状态 非必填
  */
 export class TaskDto {
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   userId: string;
 
