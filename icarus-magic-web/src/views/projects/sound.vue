@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useProjectStore } from '@/store/project.store'
 import { getVoiceList, type VoiceItem } from '@/api/voice'
 import { generateSound, generateProjectSounds, type GenerateSoundRequest, type Segment } from '@/api/sound'
 import { getTaskStatus } from '@/api/task'
-import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, ElTag, ElButton } from 'element-plus'
+import { ElForm, ElFormItem, ElSelect, ElOption, ElMessage, ElCard, ElSlider, ElButton } from 'element-plus'
 
 const projectStore = useProjectStore()
 
@@ -21,7 +21,7 @@ const segments = computed(() => {
 const voiceList = ref<VoiceItem[]>([])
 const selectedVoice = ref<string | null>(null)
 const loading = ref(false)
-const previewAudios = ref<Record<number, string>>({})
+const previewAudios = reactive<Record<number, string>>({})
 const previewLoading = ref<Record<number, boolean>>({})
 const currentPlaying = ref<number | null>(null)
 const audioElement = ref<HTMLAudioElement | null>(null)
@@ -34,24 +34,24 @@ const voiceConfig = ref({
   emotion: 'neutral' as 'neutral' | 'happy' | 'sad' | 'angry' | 'surprise'
 })
 
-const emotionOptions = [
-  { label: 'neutral', value: 'neutral', tagType: 'info' as const },
-  { label: 'happy', value: 'happy', tagType: 'success' as const },
-  { label: 'sad', value: 'sad', tagType: 'warning' as const },
-  { label: 'angry', value: 'angry', tagType: 'danger' as const },
-  { label: 'surprise', value: 'surprise', tagType: 'warning' as const }
-]
+// const emotionOptions = [
+//   { label: 'neutral', value: 'neutral', tagType: 'info' as const },
+//   { label: 'happy', value: 'happy', tagType: 'success' as const },
+//   { label: 'sad', value: 'sad', tagType: 'warning' as const },
+//   { label: 'angry', value: 'angry', tagType: 'danger' as const },
+//   { label: 'surprise', value: 'surprise', tagType: 'warning' as const }
+// ]
 
-const getEmotionLabel = (emotion: string) => {
-  const labels: Record<string, string> = {
-    neutral: '一般',
-    happy: '开心',
-    sad: '悲伤',
-    angry: '生气',
-    surprise: '惊讶'
-  }
-  return labels[emotion] || emotion
-}
+// const getEmotionLabel = (emotion: string) => {
+//   const labels: Record<string, string> = {
+//     neutral: '一般',
+//     happy: '开心',
+//     sad: '悲伤',
+//     angry: '生气',
+//     surprise: '惊讶'
+//   }
+//   return labels[emotion] || emotion
+// }
 
 // 监听项目数据变化
 watch(
@@ -74,7 +74,7 @@ watch(
     const segments = newData.segments || []
     segments.forEach((segment: Segment) => {
       if (segment.sound) {
-        previewAudios.value[segment.sort] = segment.sound
+        previewAudios[segment.sort] = segment.sound
       }
     })
   },
@@ -121,10 +121,12 @@ const generatePreviewVoice = async (segment: any) => {
         const statusResponse = await getTaskStatus(taskId)
         
         if (statusResponse.status === 'completed') {
-          previewAudios.value[segment.sort] = statusResponse.res.url
+          previewAudios[segment.sort] = statusResponse.res.url
           ElMessage.success('试听语音生成成功')
+          previewLoading.value[segment.sort] = false
         } else if (statusResponse.status === 'failed') {
           ElMessage.error('试听语音生成失败')
+          previewLoading.value[segment.sort] = false
         } else {
           // 继续轮询
           setTimeout(pollTask, 1000)
@@ -132,7 +134,6 @@ const generatePreviewVoice = async (segment: any) => {
       } catch (error) {
         console.error('查询任务状态失败:', error)
         ElMessage.error('查询任务状态失败')
-      } finally {
         previewLoading.value[segment.sort] = false
       }
     }
@@ -148,8 +149,8 @@ const generatePreviewVoice = async (segment: any) => {
 const playPreviewVoice = (sort: number) => {
   // 查找对应的 segment
   const segment = segments.value.find(s => s.sort === sort)
-  // 优先使用 segment.sound，其次使用 previewAudios
-  const audioUrl = segment?.sound || previewAudios.value[sort]
+  // 优先使用 previewAudios（最新生成的试听语音），其次使用 segment.sound（项目中保存的语音）
+  const audioUrl = previewAudios[sort] || segment?.sound
   if (!audioUrl) {
     ElMessage.warning('请先生成试听语音')
     return
@@ -221,12 +222,14 @@ const generateAndSaveAll = async () => {
           if (statusResponse.res && Array.isArray(statusResponse.res)) {
             statusResponse.res.forEach((segment: Segment) => {
               if (segment.sound) {
-                previewAudios.value[segment.sort] = segment.sound
+                previewAudios[segment.sort] = segment.sound
               }
             })
           }
+          generatingAll.value = false
         } else if (statusResponse.status === 'failed') {
           ElMessage.error('语音生成失败')
+          generatingAll.value = false
         } else {
           // 继续轮询
           setTimeout(pollTask, 3000)
@@ -234,7 +237,6 @@ const generateAndSaveAll = async () => {
       } catch (error) {
         console.error('查询任务状态失败:', error)
         ElMessage.error('查询任务状态失败')
-      } finally {
         generatingAll.value = false
       }
     }
@@ -314,7 +316,7 @@ const generateAndSaveAll = async () => {
                 </div>
               </el-form-item>
 
-              <el-form-item label="情感">
+              <!-- <el-form-item label="情感">
                 <el-select v-model="voiceConfig.emotion" placeholder="请选择情感" style="width: 100%">
                   <el-option
                     v-for="option in emotionOptions"
@@ -327,7 +329,7 @@ const generateAndSaveAll = async () => {
                     </div>
                   </el-option>
                 </el-select>
-              </el-form-item>
+              </el-form-item> -->
             </el-form>
           </el-card>
         </div>
