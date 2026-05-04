@@ -84,6 +84,7 @@ export interface OneClickGenerateParams {
   projectId: string;
   materials: string[];
   subtitleId?: string;
+  subtitleType?: 'auto' | 'custom';
 }
 
 // 一键成片响应接口

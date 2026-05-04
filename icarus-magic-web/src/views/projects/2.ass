@@ -10,7 +10,7 @@ Style: Default,Microsoft YaHei,24,&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-Dialogue: 0,0:00:00.00,0:00:02.04,Default,,0,0,0,,近日有网友爆料
+Dialogue: 0,0:00:00.00,0:00:02.04,Default,,0,0,0,,这里是自定义
 Dialogue: 0,0:00:02.04,0:00:04.66,Default,,0,0,0,,快手研发线发布通知
 Dialogue: 0,0:00:04.66,0:00:09.32,Default,,0,0,0,,收紧了对第三方编程软件的使用权限
 Dialogue: 0,0:00:09.32,0:00:14.21,Default,,0,0,0,,不少习惯用AI辅助开发的员工陷入困境

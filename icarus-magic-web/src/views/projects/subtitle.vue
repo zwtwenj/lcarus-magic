@@ -48,20 +48,6 @@ watch(() => projectStore.projectId, (newVal) => {
   }
 }, { immediate: true })
 
-// 处理字幕选择，点击已选中项则取消选中
-const handleSubtitleSelect = (type: 'auto' | 'custom', id: number) => {
-  const key = `${type}_${id}`
-  if (projectStore.generateParams.subtitleId === key) {
-    // 点击已选中的项，取消选中
-    projectStore.generateParams.subtitleId = null
-    projectStore.generateParams.subtitleType = 'auto'
-  } else {
-    // 选择新的项
-    projectStore.generateParams.subtitleId = key
-    projectStore.generateParams.subtitleType = type
-  }
-}
-
 const handleUploadSubtitle = async (file: any) => {
   if (!file || !projectStore.projectId) return
   
@@ -159,16 +145,16 @@ const getPreviewStyle = (configStr: string) => {
               class="config-card"
               v-for="item in subtitleList"
               :key="item.id"
-              :class="{ selected: isGenerate && projectStore.generateParams.subtitleId === ('auto_' + item.id) && projectStore.generateParams.subtitleType === 'auto' }"
+              :class="{ selected: isGenerate && projectStore.generateParams.subtitleId === ('auto_' + item.id) }"
             >
               <template #header>
                 <div class="card-header" v-if="isGenerate">
-                  <el-checkbox 
-                    :checked="projectStore.generateParams.subtitleId === ('auto_' + item.id) && projectStore.generateParams.subtitleType === 'auto'"
-                    @change="handleSubtitleSelect('auto', item.id)"
+                  <el-radio 
+                    :value="'auto_' + item.id"
+                    v-model="projectStore.generateParams.subtitleId"
                   >
                     {{ item.name }}
-                  </el-checkbox>
+                  </el-radio>
                 </div>
                 <div class="card-header" v-else>
                   <div class="config-name">{{ item.name }}</div>
@@ -216,16 +202,16 @@ const getPreviewStyle = (configStr: string) => {
               class="custom-item" 
               v-for="item in customSubtitleList" 
               :key="item.id"
-              :class="{ selected: isGenerate && projectStore.generateParams.subtitleId === ('custom_' + item.id) && projectStore.generateParams.subtitleType === 'custom' }"
+              :class="{ selected: isGenerate && projectStore.generateParams.subtitleId === ('custom_' + item.id) }"
             >
               <div class="item-info">
                 <template v-if="isGenerate">
-                  <el-checkbox 
-                    :checked="projectStore.generateParams.subtitleId === ('custom_' + item.id) && projectStore.generateParams.subtitleType === 'custom'"
-                    @change="handleSubtitleSelect('custom', item.id)"
+                  <el-radio 
+                    :value="'custom_' + item.id"
+                    v-model="projectStore.generateParams.subtitleId"
                   >
                     {{ item.url.split('/').pop() }}
-                  </el-checkbox>
+                  </el-radio>
                 </template>
                 <template v-else>
                   <div class="item-name">{{ item.url.split('/').pop() }}</div>

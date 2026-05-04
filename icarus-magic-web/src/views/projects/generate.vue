@@ -86,10 +86,20 @@ const handleGenerate = async () => {
 
   try {
     const materialIds = projectStore.generateParams.selectedMaterialIds.map(id => id.toString())
+    // 处理 subtitleId：从格式 "type_id" 中提取纯数字ID
+    let subtitleId: string | undefined;
+    let subtitleType: 'auto' | 'custom' | undefined;
+    if (projectStore.generateParams.subtitleId) {
+      const [type, id] = projectStore.generateParams.subtitleId.split('_');
+      subtitleId = id;
+      subtitleType = type as 'auto' | 'custom';
+    }
+    
     const result = await oneClickGenerate({
       projectId: projectStore.projectId.toString(),
       materials: materialIds,
-      subtitleId: projectStore.generateParams.subtitleId ? projectStore.generateParams.subtitleId.toString() : undefined
+      subtitleId,
+      subtitleType
     })
     
     if (result.taskId) {
