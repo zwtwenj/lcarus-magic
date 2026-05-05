@@ -26,6 +26,7 @@ import { SoundModule } from './route/sound/sound.module';
 import { MaterialModule } from './route/material/material.module';
 import { SubtitleConfigModule } from './route/subbitleConfig/subtitleConfig.module';
 import { SubtitleModule } from './route/subtitle/subtitle.module';
+import { FrontendModule } from './route/frontend/frontend.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { SubtitleModule } from './route/subtitle/subtitle.module';
     MaterialModule,
     SubtitleConfigModule,
     SubtitleModule,
+    FrontendModule,
   ],
   controllers: [],
   providers: [],
