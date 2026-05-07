@@ -5,6 +5,7 @@ import Sound from './sound.vue'
 import Subtitle from './subtitle.vue'
 import Materials from './materials.vue'
 import GenerateVideo from './generateVideo.vue'
+import VideoConfig from './videoConfig.vue'
 import { useProjectStore } from '@/store/project.store'
 import { oneClickGenerate } from '@/api/project'
 import { getTaskStatus } from '@/api/task'
@@ -17,6 +18,7 @@ const steps = [
   { key: 'sound', label: '声音' },
   { key: 'subtitle', label: '字幕' },
   { key: 'materials', label: '素材' },
+  { key: 'config', label: '设置' },
   { key: 'video', label: '成片' }
 ]
 
@@ -117,7 +119,7 @@ const handleGenerate = async () => {
 }
 
 const isLastStep = () => currentStep.value === steps.length - 1
-const isMaterialsStep = () => currentStep.value === 3
+const isConfigStep = () => currentStep.value === 4
 </script>
 
 <template>
@@ -158,8 +160,13 @@ const isMaterialsStep = () => currentStep.value === 3
         <Materials :isGenerate="true" />
       </div>
 
-      <!-- 成片步骤 -->
+      <!-- 设置步骤 -->
       <div v-else-if="currentStep === 4" class="step-content">
+        <VideoConfig />
+      </div>
+
+      <!-- 成片步骤 -->
+      <div v-else-if="currentStep === 5" class="step-content">
         <GenerateVideo />
       </div>
     </div>
@@ -167,7 +174,7 @@ const isMaterialsStep = () => currentStep.value === 3
     <!-- 底部导航按钮 -->
     <div class="step-actions">
       <el-button size="large" :disabled="currentStep === 0" @click="prevStep">上一步</el-button>
-      <el-button v-if="isMaterialsStep()" size="large" type="primary" :loading="isGenerating" @click="handleGenerate">
+      <el-button v-if="isConfigStep()" size="large" type="primary" :loading="isGenerating" @click="handleGenerate">
         <span v-if="isGenerating">生成中...</span>
         <span v-else>一键成片</span>
       </el-button>

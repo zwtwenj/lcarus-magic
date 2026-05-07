@@ -35,6 +35,11 @@ interface MenuItem {
   icon: string
 }
 
+interface VideoConfig {
+  width?: number
+  height?: number
+}
+
 export const useProjectStore = defineStore('project', {
   state: () => ({
     // 项目id
@@ -58,7 +63,8 @@ export const useProjectStore = defineStore('project', {
     generateParams: {
       subtitleType: 'auto',
       subtitleId: null as string | null,
-      selectedMaterialIds: [] as number[]
+      selectedMaterialIds: [] as number[],
+      videoConfig: {} as VideoConfig
     },
     generateVideo: ''
   }),

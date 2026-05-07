@@ -261,8 +261,8 @@ const polishText = async () => {
 
 <style scoped lang="less">
 .project-text {
-    width: 100%;
-    .page-header {
+  width: 100%;
+  .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
