@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useProjectStore } from '@/store/project.store'
 import { ElForm, ElFormItem, ElInputNumber } from 'element-plus'
 
@@ -8,9 +8,13 @@ const projectStore = useProjectStore()
 const width = ref(projectStore.generateParams.videoConfig.width || 1920)
 const height = ref(projectStore.generateParams.videoConfig.height || 1080)
 
-watch([width, height], () => {
+const syncToStore = () => {
   projectStore.generateParams.videoConfig = { width: width.value, height: height.value }
-}, { deep: true })
+}
+
+watch([width, height], syncToStore, { deep: true })
+
+onMounted(syncToStore)
 </script>
 
 <template>

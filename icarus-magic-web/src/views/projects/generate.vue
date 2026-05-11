@@ -101,7 +101,8 @@ const handleGenerate = async () => {
       projectId: projectStore.projectId.toString(),
       materials: materialIds,
       subtitleId,
-      subtitleType
+      subtitleType,
+      videoConfig: projectStore.generateParams.videoConfig
     })
     
     if (result.taskId) {

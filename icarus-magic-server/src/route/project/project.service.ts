@@ -173,7 +173,7 @@ export class ProjectService {
 
   // 一键成片
   async generate(dto: OneClickGenerateDto, userId: number) {
-    const { projectId, materials, subtitleId, subtitleType } = dto;
+    const { projectId, materials, subtitleId, subtitleType, videoConfig } = dto;
 
     // 创建 video 类型任务（提前创建，便于追踪状态）
     let task = this.taskRepository.create({
@@ -181,14 +181,14 @@ export class ProjectService {
       type: 'video',
       status: TaskStatus.processing,
       create_time: new Date(),
-      req: JSON.stringify({ projectId, materials, subtitleId, subtitleType }),
+      req: JSON.stringify({ projectId, materials, subtitleId, subtitleType, videoConfig }),
       res: JSON.stringify({}),
     });
     task.user = { id: userId } as any;
     task = await this.taskRepository.save(task);
     
     // 异步执行后续逻辑，不阻塞返回
-    this.executeGenerate(task.id, projectId, materials, subtitleId, subtitleType, userId);
+    this.executeGenerate(task.id, projectId, materials, subtitleId, subtitleType, videoConfig, userId);
     
     // 立即返回 taskId，前端通过轮询查询任务状态
     return {
@@ -197,7 +197,7 @@ export class ProjectService {
   }
 
   // 异步执行一键成片逻辑
-  private async executeGenerate(taskId: number, projectId: string, materials: string[], subtitleId: string | undefined, subtitleType: 'auto' | 'custom' | undefined, userId: number) {
+  private async executeGenerate(taskId: number, projectId: string, materials: string[], subtitleId: string | undefined, subtitleType: 'auto' | 'custom' | undefined, videoConfig: { width?: number; height?: number } | undefined, userId: number) {
     const task = await this.taskRepository.findOne({ where: { id: taskId } });
     if (!task) {
       return;
@@ -301,8 +301,8 @@ export class ProjectService {
         console.log(`✅ 字幕生成并上传成功：${subtitleOssUrl}`);
       }
 
-      // 生成ffmpeg命令（传入字幕URL）
-      const ffmpegCommand = await this.ffmpegCommand(matchedData, subtitleOssUrl);
+      // 生成ffmpeg命令（传入字幕URL和视频配置）
+      const ffmpegCommand = await this.ffmpegCommand(matchedData, subtitleOssUrl, videoConfig);
 
       // 执行 FFmpeg 命令
       const executeResult = await this.executeFfmpeg(ffmpegCommand);
@@ -328,7 +328,7 @@ export class ProjectService {
   }
 
   // 生成ffmpeg命令
-  async ffmpegCommand(data: any, subtitleUrl?: string) {
+  async ffmpegCommand(data: any, subtitleUrl?: string, videoConfig?: { width?: number; height?: number }) {
     // 输入数据示例：
     // {"matched_data":[{"index":1,"text":"近日有网友爆料...","voiceId":"longhouge_v3","ossUrl":"http://...","format":"mp3","durationSeconds":9.326,"matched_image_url":"http://...","matched_image_tip":[...]}],"run_id":"b4b79f45-5457-42c3-814c-489092a724fa"}
 
@@ -356,8 +356,9 @@ export class ProjectService {
       subtitle: subtitleUrl || null,
       output: {
         name: `final_video_${timestamp}`,
-        width: 375,
-        height: 667
+        width: videoConfig?.width || 375,
+        height: videoConfig?.height || 667,
+        videoConfig
       }
     };
 
@@ -387,7 +388,8 @@ export class ProjectService {
       console.log('调用 file-server 下载文件：', { project: params.project, files: downloadFiles });
       downloadResult = await axios.post('http://localhost:3001/download-files', {
         project: params.project,
-        files: downloadFiles
+        files: downloadFiles,
+        videoConfig: params.output.videoConfig
       });
       console.log('文件下载成功：', downloadResult.data);
     } catch (error) {
@@ -404,7 +406,8 @@ export class ProjectService {
       runShellResult = await axios.post('http://localhost:3001/run-shell', {
         script: scriptBase64,
         project: projectName,
-        outputName: outputName
+        outputName: outputName,
+        videoConfig: params.output.videoConfig
       });
       console.log('FFmpeg 命令执行成功：', runShellResult.data);
     } catch (error) {

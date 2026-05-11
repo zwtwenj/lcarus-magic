@@ -8,6 +8,7 @@ import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const projectStore = useProjectStore()
+projectStore.$reset()
 
 // 组件挂载时获取项目信息
 onMounted(async () => {

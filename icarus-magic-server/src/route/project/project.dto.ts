@@ -55,6 +55,16 @@ export class ListDto {
  * @param materials 素材URL列表
  * @param subtitleId 字幕配置ID（可选，预留字段）
  */
+export class VideoConfigDto {
+    @IsOptional()
+    @IsInt()
+    width?: number;
+
+    @IsOptional()
+    @IsInt()
+    height?: number;
+}
+
 export class OneClickGenerateDto {
     @IsDefined()
     @IsNotEmpty()
@@ -72,6 +82,9 @@ export class OneClickGenerateDto {
     @IsOptional()
     @IsString()
     subtitleType?: 'auto' | 'custom';
+
+    @IsOptional()
+    videoConfig?: VideoConfigDto;
 }
 
 /**

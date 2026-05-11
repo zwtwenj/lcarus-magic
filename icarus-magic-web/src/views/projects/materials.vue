@@ -19,7 +19,8 @@ const editingMaterial = ref<Material | null>(null)
 const editingName = ref('')
 const nameInputRef = ref()
 const isSelectMode = ref(false)
-const selectedMaterialIds = ref<number[]>([])
+// 从 store 初始化勾选状态，保持跨 tab 状态
+const selectedMaterialIds = ref<number[]>(projectStore.generateParams?.selectedMaterialIds || [])
 const searchKeyword = ref('')
 
 const props = withDefaults(defineProps<{

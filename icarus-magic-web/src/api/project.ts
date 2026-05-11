@@ -85,6 +85,10 @@ export interface OneClickGenerateParams {
   materials: string[];
   subtitleId?: string;
   subtitleType?: 'auto' | 'custom';
+  videoConfig?: {
+    width: number;
+    height: number;
+  };
 }
 
 // 一键成片响应接口

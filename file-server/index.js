@@ -6,6 +6,7 @@ const util = require('util');
 const { exec } = require('child_process');
 const mkdirp = require('mkdirp');
 const OSS = require('ali-oss');
+const sharp = require('sharp');
 
 const execAsync = util.promisify(exec);
 
@@ -24,7 +25,7 @@ const ossClient = new OSS({
 app.use(express.json());
 
 app.post('/download-files', async (req, res) => {
-    const { project, files } = req.body;
+    const { project, files, videoConfig } = req.body;
 
     // 参数校验
     if (!project || !files || !Array.isArray(files) || files.length === 0) {
@@ -61,6 +62,23 @@ app.post('/download-files', async (req, res) => {
                         .on('finish', resolve)
                         .on('error', reject);
                 });
+
+                // 如果是图片且有视频配置，按指定尺寸转换并替换原文件
+                const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|tiff)$/i.test(fileName);
+                if (isImage && videoConfig?.width && videoConfig?.height) {
+                    try {
+                        const buffer = await sharp(filePath)
+                            .resize(videoConfig.width, videoConfig.height, {
+                                fit: sharp.fit.contain,
+                                withoutEnlargement: false
+                            })
+                            .toBuffer();
+                        fs.writeFileSync(filePath, buffer);
+                        console.log(`✅ 图片已转换尺寸：${fileName} -> ${videoConfig.width}x${videoConfig.height}`);
+                    } catch (resizeErr) {
+                        console.error(`❌ 图片转换失败：${fileName}`, resizeErr.message);
+                    }
+                }
 
                 successFiles.push(fileName);
                 console.log(`✅ 成功下载：${fileName}`);
