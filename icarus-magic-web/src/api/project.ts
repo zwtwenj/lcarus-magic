@@ -67,6 +67,25 @@ export const getProjectInfo = async (id: number): Promise<GetProjectInfoResponse
   return response;
 };
 
+// 视频项接口
+export interface VideoItem {
+  id: number;
+  taskId: string | null;
+  projectId: number | null;
+  url: string | null;
+  parameters: any;
+  voiceId: string | null;
+  materials: string[];
+  segments: any[];
+  createdAt: string;
+}
+
+// 查询项目下已生成的视频列表
+export const getProjectVideos = async (projectId: number): Promise<VideoItem[]> => {
+  const response = await request.get<VideoItem[]>(`/project/videos?projectId=${projectId}`) as unknown as VideoItem[];
+  return response;
+};
+
 // 保存项目文案请求参数接口
 export interface SaveTextParams {
   projectId: number;

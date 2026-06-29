@@ -12,6 +12,13 @@ export class Video {
   taskId: string;
 
   @Column({
+    name: 'project_id',
+    type: 'int',
+    nullable: true
+  })
+  projectId: number;
+
+  @Column({
     type: 'varchar',
     length: 512,
     nullable: true

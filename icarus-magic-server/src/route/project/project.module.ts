@@ -7,10 +7,11 @@ import { User } from '../user/user.entity';
 import { Material } from '../material/material.entity';
 import { Task } from '../task/task.entity';
 import { Subtitle } from '../subtitle/subtitle.entity';
+import { Video } from '../video/video.entity';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Project, User, Material, Task, Subtitle]),
+        TypeOrmModule.forFeature([Project, User, Material, Task, Subtitle, Video]),
     ],
     controllers: [ProjectController],
     providers: [ProjectService],

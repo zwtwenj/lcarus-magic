@@ -58,7 +58,7 @@ const pollTask = async () => {
       isGenerating.value = false
       generateTaskId.value = null
       // 跳转到成片步骤
-      currentStep.value = 4
+      currentStep.value = 5
     } else if (statusResponse.status === 'failed') {
       ElMessage.error('视频生成失败')
       isGenerating.value = false

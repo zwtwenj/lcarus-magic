@@ -7,6 +7,7 @@ import { User } from '../user/user.entity';
 import { Material } from '../material/material.entity';
 import { Task } from '../task/task.entity';
 import { Subtitle } from '../subtitle/subtitle.entity';
+import { Video } from '../video/video.entity';
 import { TaskStatus } from '../task/task.dto';
 import { CreateProjectDto, ListDto, SaveTextDto, OneClickGenerateDto } from './project.dto';
 import { callCozeMaterialMatch, callCozeFfmpegCommand } from '../../model/coze';
@@ -27,6 +28,8 @@ export class ProjectService {
     private readonly taskRepository: Repository<Task>,
     @InjectRepository(Subtitle)
     private readonly subtitleRepository: Repository<Subtitle>,
+    @InjectRepository(Video)
+    private readonly videoRepository: Repository<Video>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -318,6 +321,26 @@ export class ProjectService {
       await this.taskRepository.save(task);
       console.log(`✅ 一键成片任务完成，taskId: ${task.id}, ossUrl: ${ossUrl}`);
 
+      // 视频合成成功后，将生成的视频入库到 video 表
+      if (ossUrl) {
+        try {
+          const video = this.videoRepository.create({
+            taskId: String(task.id),
+            projectId: parseInt(projectId),
+            url: ossUrl,
+            parameters: videoConfig || null,
+            voiceId: project.voiceId,
+            materials: materials || [],
+            segments: project.segments || [],
+          });
+          const savedVideo = await this.videoRepository.save(video);
+          console.log(`✅ 视频已存入 video 表，videoId: ${savedVideo.id}`);
+        } catch (err) {
+          // 入库失败不影响任务已完成的状态
+          console.error('视频入库失败:', err);
+        }
+      }
+
     } catch (error) {
       // 更新任务状态为失败
       task.status = TaskStatus.failed;
@@ -325,6 +348,14 @@ export class ProjectService {
       await this.taskRepository.save(task);
       console.error('一键成片失败：', error);
     }
+  }
+
+  // 查询某个项目下所有已生成的视频
+  async getProjectVideos(projectId: number) {
+    return this.videoRepository.find({
+      where: { projectId },
+      order: { createdAt: 'DESC' },
+    });
   }
 
   // 生成ffmpeg命令

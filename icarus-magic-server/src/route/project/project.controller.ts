@@ -35,6 +35,12 @@ export class ProjectController {
     return this.projectService.getProjectInfo(id);
   }
 
+  // 查询项目下已生成的视频列表
+  @Get('/videos')
+  async getProjectVideos(@Query('projectId', ParseIntPipe) projectId: number) {
+    return this.projectService.getProjectVideos(projectId);
+  }
+
   // 保存文案
   @Post('/saveText')
   async saveText(@Body() dto: SaveTextDto) {

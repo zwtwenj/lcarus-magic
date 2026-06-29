@@ -1,31 +1,6 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useRoute } from 'vue-router'
 import Menu from './menu.vue'
 import Navigation from './navigation.vue'
-import { useProjectStore } from '../../store/project.store'
-import { ElMessage } from 'element-plus'
-
-const route = useRoute()
-const projectStore = useProjectStore()
-projectStore.$reset()
-
-// 组件挂载时获取项目信息
-onMounted(async () => {
-  const projectId = route.query.id as string
-  if (projectId) {
-    try {
-      await projectStore.fetchProjectDetail(Number(projectId))
-      // 根据当前路由设置菜单
-      const currentPath = route.path
-      const menuKey = currentPath.split('/').pop() || 'overview'
-      projectStore.currentMenu = menuKey
-    } catch (error) {
-      console.error('获取项目信息失败:', error)
-      ElMessage.error('获取项目信息失败')
-    }
-  }
-})
 </script>
 
 <template>
