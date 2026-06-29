@@ -64,7 +64,8 @@ app.post('/download-files', async (req, res) => {
                 });
 
                 // 如果是图片且有视频配置，按指定尺寸转换并替换原文件
-                const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|tiff)$/i.test(fileName);
+                const isImage = /\.(jpg|jpeg|png|webp|gif|bmp|tiff)(?=$|[-_.])/i.test(fileName);
+                console.log('videoconfig',videoConfig)
                 if (isImage && videoConfig?.width && videoConfig?.height) {
                     try {
                         const buffer = await sharp(filePath)
